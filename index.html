@@ -1671,13 +1671,39 @@ async function hostStart(){
     c.on("data",d=>onHostMsg(c,d));
     c.on("close",()=>{if(c.hbName&&conns[c.hbName]===c)delete conns[c.hbName];render();});
   });
-  hostPeer.on("disconnected",()=>{hostOnline=false;render();try{hostPeer.reconnect();}catch(e){}});
+  hostPeer.on("open",()=>{hostRetry=0;clearTimeout(hostRetryT);});
+  hostPeer.on("disconnected",()=>{hostOnline=false;render();hostHeal();});
   hostPeer.on("error",e=>{
-    if(e.type==="unavailable-id"){try{hostPeer.destroy();}catch(x){}hostPeer=null;hostOnline=false;setTimeout(hostStart,4000);}
+    if(e.type==="unavailable-id"){try{hostPeer.destroy();}catch(x){}hostPeer=null;hostOnline=false;clearTimeout(hostRetryT);hostRetryT=setTimeout(hostStart,4000);}
+    else if(NET_ERR.includes(e.type)){hostOnline=false;render();hostHeal();} // Handy war im Standby / Netz weg -> still neu verbinden
     else if(e.type!=="peer-unavailable"){toast("Verbindungsproblem: "+e.type,5000);}
   });
 }
-function hostStop(){if(hostPeer){try{hostPeer.destroy();}catch(e){}}hostPeer=null;hostOnline=false;for(const k in conns)delete conns[k];}
+const NET_ERR=["network","server-error","socket-error","socket-closed","disconnected"];
+let hostRetry=0, hostRetryT=null;
+// Verbindung zum Vermittlungs-Server wiederherstellen (mit wachsender Pause, max. 15 s)
+function hostHeal(now){
+  clearTimeout(hostRetryT);
+  if(!isBz()||!S.room) return;
+  const go=()=>{
+    if(hostPeer&&hostPeer.open) return;
+    if(!hostPeer||hostPeer.destroyed){hostPeer=null;hostStart();}
+    else if(hostPeer.disconnected){try{hostPeer.reconnect();}catch(e){try{hostPeer.destroy();}catch(x){}hostPeer=null;hostStart();}}
+    hostRetry++; hostRetryT=setTimeout(()=>hostHeal(),Math.min(15000,2000*hostRetry));
+  };
+  if(now) go(); else hostRetryT=setTimeout(go,Math.min(15000,1000+1000*hostRetry));
+}
+function hostStop(){clearTimeout(hostRetryT);hostRetry=0;if(hostPeer){try{hostPeer.destroy();}catch(e){}}hostPeer=null;hostOnline=false;for(const k in conns)delete conns[k];}
+// Nach Standby / Wechsel der App / WLAN-Wechsel sofort neu verbinden
+function onWake(){
+  if(document.visibilityState==="hidden") return;
+  if(hostPeer&&!hostPeer.open) hostHeal(true);
+  if(JOIN&&C.status!=="name"&&C.status!=="connected"&&C.status!=="error") clientConnect();
+  else if(JOIN&&cconn&&!cconn.open&&C.status==="connected"){C.status="reconnecting";renderC();clientConnect();}
+}
+document.addEventListener("visibilitychange",onWake);
+window.addEventListener("online",onWake);
+window.addEventListener("pageshow",onWake);
 function send(name,msg){const c=conns[name];if(c&&c.open){try{c.send(msg);}catch(e){}}}
 function broadcast(msg){for(const n in conns)send(n,msg);}
 function scores(){return S.players.map(p=>({name:p.name,cards:p.timeline.length,tokens:p.tokens}));}
