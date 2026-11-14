@@ -3,95 +3,112 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f5f4fa">
+<meta name="color-scheme" content="light">
 <title>HitBeat – Musik-Zeitleisten-Spiel</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0f0d1a; --panel:#1a1730; --panel2:#24203f; --ink:#f4f1ff; --muted:#a59fc7;
-    --accent:#ff4f8b; --accent2:#3ee0c5; --gold:#ffc94a; --bad:#ff6b5b; --good:#3ee08a;
-    --radius:16px;
+    --bg:#f5f4fa; --panel:#ffffff; --panel2:#f0eef7; --ink:#1d1b2e; --muted:#6e6a85; --line:#e7e4f0;
+    --accent:#7c3aed; --accent-b:#ec4899; --accent2:#0d9488; --gold:#d48806; --bad:#e5484d; --good:#16a34a;
+    --grad:linear-gradient(135deg,#7c3aed 0%,#c026d3 55%,#ec4899 100%);
+    --shadow:0 1px 2px rgba(29,27,46,.04),0 6px 24px rgba(29,27,46,.07);
+    --shadow-lg:0 2px 4px rgba(29,27,46,.05),0 16px 40px rgba(124,58,237,.16);
+    --radius:22px;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
   body{min-height:100vh;background:
-    radial-gradient(700px 400px at 100% -10%, rgba(255,79,139,.18), transparent 60%),
-    radial-gradient(600px 400px at -10% 110%, rgba(62,224,197,.14), transparent 60%), var(--bg)}
-  .wrap{max-width:720px;margin:0 auto;padding:18px 16px 60px}
-  h1,h2,h3{font-family:"Bricolage Grotesque",Inter,sans-serif;margin:0}
-  h1{font-size:30px;font-weight:800;letter-spacing:-.5px}
-  h1 span{color:var(--accent)}
-  h2{font-size:22px;font-weight:700;margin-bottom:10px}
+    radial-gradient(900px 480px at 110% -15%, rgba(236,72,153,.13), transparent 60%),
+    radial-gradient(800px 480px at -20% -10%, rgba(124,58,237,.12), transparent 60%),
+    radial-gradient(700px 400px at 50% 120%, rgba(13,148,136,.08), transparent 60%), var(--bg)}
+  .wrap{max-width:720px;margin:0 auto;padding:20px 16px 64px}
+  h1,h2,h3{font-family:"Bricolage Grotesque",Inter,sans-serif;margin:0;letter-spacing:-.4px}
+  h1{font-size:32px;font-weight:800;letter-spacing:-1px}
+  h1 span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  h2{font-size:21px;font-weight:700;margin-bottom:10px}
+  h3{font-size:17px;font-weight:700}
   .sub{color:var(--muted);font-size:14px;margin-top:4px}
-  .panel{background:var(--panel);border-radius:var(--radius);padding:16px;margin-top:14px;border:1px solid rgba(255,255,255,.06)}
-  label{display:block;font-size:13px;color:var(--muted);margin:12px 0 6px}
-  input[type=text],input[type=number],select{width:100%;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:var(--panel2);color:var(--ink);font-size:16px;font-family:inherit}
+  .panel{background:var(--panel);border-radius:var(--radius);padding:18px;margin-top:14px;border:1px solid var(--line);box-shadow:var(--shadow)}
+  label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:14px 0 6px}
+  input[type=text],input[type=number],select{width:100%;padding:13px 15px;border-radius:14px;border:1.5px solid var(--line);background:#fbfaff;color:var(--ink);font-size:16px;font-family:inherit;outline:none;transition:border-color .15s,box-shadow .15s}
+  input[type=text]:focus,input[type=number]:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(124,58,237,.12);background:#fff}
+  ::placeholder{color:#a9a5bd}
   .row{display:flex;gap:8px;align-items:center}
   .row>*{flex:1}
-  .btn{appearance:none;border:0;border-radius:14px;padding:14px 16px;font-size:16px;font-weight:600;font-family:inherit;cursor:pointer;background:var(--panel2);color:var(--ink);display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;width:100%;margin-top:10px;transition:transform .08s}
+  .btn{appearance:none;border:1.5px solid var(--line);border-radius:16px;padding:14px 16px;font-size:16px;font-weight:600;font-family:inherit;cursor:pointer;background:var(--panel);color:var(--ink);display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;width:100%;margin-top:10px;transition:transform .08s,box-shadow .15s,background .15s;box-shadow:0 1px 2px rgba(29,27,46,.04)}
   .btn:active{transform:scale(.97)}
-  .btn.primary{background:var(--accent);color:#fff}
-  .btn.spotify{background:#1ed760;color:#06210f;font-size:18px;padding:18px}
-  .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,.14);color:var(--muted)}
-  .btn.small{padding:9px 12px;font-size:14px;width:auto;margin-top:0}
+  .btn.primary{background:var(--grad);color:#fff;border-color:transparent;box-shadow:0 6px 18px rgba(192,38,211,.28)}
+  .btn.primary .small{color:rgba(255,255,255,.85)!important}
+  .btn.spotify{background:#1ed760;color:#052e14;border-color:transparent;font-size:18px;padding:18px;box-shadow:0 6px 18px rgba(30,215,96,.3)}
+  .btn.ghost{background:transparent;border:1.5px solid var(--line);color:var(--muted);box-shadow:none}
+  .btn.small{padding:9px 13px;font-size:14px;width:auto;margin-top:0;border-radius:12px}
   .btn:disabled{opacity:.4;pointer-events:none}
-  .seg{display:flex;background:var(--panel2);border-radius:12px;padding:4px;gap:4px}
-  .seg button{flex:1;border:0;background:transparent;color:var(--muted);padding:10px 6px;border-radius:9px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer}
-  .seg button.on{background:var(--accent2);color:#06211d}
-  .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-top:12px}
-  .chip{flex:0 0 auto;background:var(--panel);border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:7px 12px;font-size:13px;white-space:nowrap}
-  .chip.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
-  .chip b{font-weight:600}
-  .tok{color:var(--gold)}
+  .seg{display:flex;background:var(--panel2);border-radius:14px;padding:4px;gap:4px}
+  .seg button{flex:1;border:0;background:transparent;color:var(--muted);padding:10px 6px;border-radius:11px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s,color .15s}
+  .seg button.on{background:#fff;color:var(--accent);box-shadow:0 1px 3px rgba(29,27,46,.1),0 2px 8px rgba(124,58,237,.12)}
+  .chips{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 6px;margin-top:14px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:0 0 auto;background:var(--panel);border:1.5px solid var(--line);border-radius:999px;padding:7px 13px;font-size:13px;white-space:nowrap;box-shadow:0 1px 2px rgba(29,27,46,.04)}
+  .chip.active{border-color:var(--accent);background:#f5f0ff;color:var(--accent)}
+  .chip b{font-weight:700}
+  .tok{color:var(--gold);font-weight:600}
   .turnbox{text-align:center}
-  .big{font-family:"Bricolage Grotesque";font-size:34px;font-weight:800;line-height:1.05}
-  .dj{display:inline-block;background:rgba(62,224,197,.14);color:var(--accent2);padding:6px 12px;border-radius:999px;font-size:14px;font-weight:600;margin-top:10px}
-  .hint{color:var(--muted);font-size:14px;line-height:1.45;margin-top:10px}
-  .vinyl{width:120px;height:120px;margin:16px auto 4px;border-radius:50%;background:
-    radial-gradient(circle,var(--accent) 0 14%,#111 15% 17%,#1c1c1c 18% 30%,#111 31% 32%,#1c1c1c 33% 46%,#111 47% 48%,#1c1c1c 49% 62%,#111 63% 64%,#1c1c1c 65%);animation:spin 3s linear infinite;box-shadow:0 10px 40px rgba(255,79,139,.25)}
+  .big{font-family:"Bricolage Grotesque";font-size:36px;font-weight:800;line-height:1.05;letter-spacing:-1px}
+  .dj{display:inline-block;background:rgba(13,148,136,.1);color:var(--accent2);padding:7px 14px;border-radius:999px;font-size:14px;font-weight:600;margin-top:10px}
+  .hint{color:var(--muted);font-size:14px;line-height:1.5;margin-top:10px}
+  .vinyl{width:132px;height:132px;margin:18px auto 6px;border-radius:50%;background:
+    radial-gradient(circle,#fff 0 4%,#d946ef 4.5% 10%,#a855f7 10.5% 17%,#2a2740 18% 30%,#18162a 31% 32%,#2a2740 33% 46%,#18162a 47% 48%,#2a2740 49% 62%,#18162a 63% 64%,#2a2740 65%);
+    animation:spin 3s linear infinite;box-shadow:0 14px 36px rgba(124,58,237,.3)}
   .vinyl.stop{animation-play-state:paused}
   @keyframes spin{to{transform:rotate(360deg)}}
-  .timeline{display:flex;flex-wrap:wrap;gap:6px;align-items:stretch;margin-top:10px}
-  .card{background:linear-gradient(160deg,#2c2752,#201c3b);border-radius:12px;padding:8px 10px;min-width:84px;max-width:140px;flex:0 0 auto;border:1px solid rgba(255,255,255,.08)}
-  .card .y{font-family:"Bricolage Grotesque";font-weight:800;font-size:22px;color:var(--gold)}
-  .card .t{font-size:11.5px;line-height:1.25;color:var(--ink);margin-top:2px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .timeline{display:flex;flex-wrap:wrap;gap:7px;align-items:stretch;margin-top:12px}
+  .card{background:#fff;border-radius:14px;padding:9px 11px 9px 12px;min-width:86px;max-width:142px;flex:0 0 auto;border:1.5px solid var(--line);box-shadow:0 2px 8px rgba(29,27,46,.06);position:relative;overflow:hidden}
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--grad)}
+  .card .y{font-family:"Bricolage Grotesque";font-weight:800;font-size:22px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:-.5px}
+  .card .t{font-size:11.5px;font-weight:600;line-height:1.25;color:var(--ink);margin-top:2px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
   .card .a{font-size:11px;color:var(--muted);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-  .card.new{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2) inset}
-  .slot{flex:0 0 auto;width:40px;border-radius:12px;border:2px dashed rgba(255,255,255,.18);background:transparent;color:var(--muted);font-size:20px;cursor:pointer;min-height:64px;font-family:inherit}
-  .slot.sel{border-style:solid;border-color:var(--accent);background:rgba(255,79,139,.18);color:#fff}
-  .slot.ch{border-style:solid;border-color:var(--gold);background:rgba(255,201,74,.16);color:#fff}
+  .card.new{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(13,148,136,.15)}
+  .card.new::before{background:var(--accent2)}
+  .slot{flex:0 0 auto;width:40px;border-radius:14px;border:2px dashed #d6d1e6;background:rgba(255,255,255,.5);color:#a9a5bd;font-size:20px;cursor:pointer;min-height:64px;font-family:inherit;transition:all .15s}
+  .slot.sel{border-style:solid;border-color:var(--accent);background:var(--grad);color:#fff;box-shadow:0 6px 16px rgba(192,38,211,.3)}
+  .slot.ch{border-style:solid;border-color:var(--gold);background:#fff4dc;color:var(--gold)}
   .slot.both{border-color:var(--accent)}
   .result{text-align:center;padding:6px 0}
-  .result .year{font-family:"Bricolage Grotesque";font-size:64px;font-weight:800;color:var(--gold);line-height:1}
-  .result .title{font-size:20px;font-weight:600;margin-top:6px}
+  .result .year{font-family:"Bricolage Grotesque";font-size:68px;font-weight:800;line-height:1;letter-spacing:-2px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .result .title{font-size:20px;font-weight:700;margin-top:6px}
   .result .artist{color:var(--muted)}
-  .verdict{margin-top:14px;padding:12px;border-radius:12px;font-weight:600}
-  .verdict.ok{background:rgba(62,224,138,.14);color:var(--good)}
-  .verdict.no{background:rgba(255,107,91,.14);color:var(--bad)}
+  .verdict{margin-top:14px;padding:13px;border-radius:14px;font-weight:600}
+  .verdict.ok{background:#e8f8ee;color:var(--good)}
+  .verdict.no{background:#fdecec;color:var(--bad)}
   .verdict.neutral{background:var(--panel2);color:var(--ink)}
-  .toggle{display:flex;align-items:center;gap:12px;background:var(--panel2);border-radius:12px;padding:12px 14px;margin-top:10px;cursor:pointer;user-select:none}
-  .toggle .box{width:26px;height:26px;border-radius:8px;border:2px solid var(--muted);display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-weight:800}
-  .toggle.on .box{background:var(--good);border-color:var(--good);color:#062}
+  .toggle{display:flex;align-items:center;gap:12px;background:var(--panel2);border-radius:14px;padding:12px 14px;margin-top:10px;cursor:pointer;user-select:none;transition:background .15s}
+  .toggle .box{width:26px;height:26px;border-radius:8px;border:2px solid #c9c4da;background:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-weight:800;color:transparent}
+  .toggle.on{background:#f0fbf4}
+  .toggle.on .box{background:var(--good);border-color:var(--good);color:#fff}
   .players .prow{display:flex;gap:8px;margin-top:8px}
   .players .prow input{flex:1}
-  .x{width:46px;flex:0 0 46px;border-radius:12px;border:0;background:var(--panel2);color:var(--muted);font-size:18px;cursor:pointer}
-  .modal-bg{position:fixed;inset:0;background:rgba(5,4,12,.7);display:flex;align-items:flex-end;justify-content:center;z-index:10}
-  .modal{background:var(--panel);border-radius:20px 20px 0 0;padding:20px 16px 28px;width:100%;max-width:720px;max-height:85vh;overflow:auto}
-  .rules p,.rules li{color:var(--muted);font-size:14px;line-height:1.5}
+  .x{width:46px;flex:0 0 46px;border-radius:14px;border:1.5px solid var(--line);background:var(--panel);color:var(--muted);font-size:18px;cursor:pointer}
+  .modal-bg{position:fixed;inset:0;background:rgba(29,27,46,.35);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center;z-index:10}
+  .modal{background:var(--panel);border-radius:26px 26px 0 0;padding:22px 18px 30px;width:100%;max-width:720px;max-height:85vh;overflow:auto;box-shadow:0 -10px 40px rgba(29,27,46,.15)}
+  .modal::before{content:"";display:block;width:40px;height:5px;border-radius:9px;background:#dcd8e8;margin:-8px auto 14px}
+  .rules p,.rules li{color:var(--muted);font-size:14px;line-height:1.55}
   .rules b{color:var(--ink)}
   .topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
-  .linkish{background:none;border:0;color:var(--muted);font-family:inherit;font-size:13px;text-decoration:underline;cursor:pointer;padding:4px}
+  .linkish{background:none;border:0;color:var(--muted);font-family:inherit;font-size:13px;font-weight:500;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:4px}
   .confetti{font-size:54px;text-align:center}
   .small{font-size:12.5px;color:var(--muted)}
   .picks{display:flex;flex-wrap:wrap;gap:6px}
-  .pick{border:1px solid rgba(255,255,255,.12);background:var(--panel2);color:var(--muted);border-radius:999px;padding:8px 12px;font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
-  .pick.on{background:var(--accent2);border-color:var(--accent2);color:#06211d}
+  .pick{border:1.5px solid var(--line);background:var(--panel);color:var(--muted);border-radius:999px;padding:8px 13px;font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;transition:all .15s}
+  .pick.on{background:var(--accent);border-color:var(--accent);color:#fff}
   .pick .cnt{opacity:.6;font-weight:500;margin-left:2px}
-  .pick.all{background:transparent;color:var(--accent2);border-style:dashed}
-  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#2c2752;color:var(--ink);padding:12px 16px;border-radius:12px;font-size:14px;max-width:90%;z-index:20;box-shadow:0 8px 30px rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.1)}
-  .ok-badge{display:inline-block;background:rgba(30,215,96,.15);color:#1ed760;padding:6px 12px;border-radius:999px;font-weight:600;font-size:14px}
-  code.uri{display:block;background:var(--panel2);padding:10px 12px;border-radius:10px;font-size:13px;word-break:break-all;margin-top:6px;color:var(--accent2)}
+  .pick.all{background:transparent;color:var(--accent);border-style:dashed}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 18px;border-radius:14px;font-size:14px;font-weight:500;max-width:90%;z-index:20;box-shadow:0 10px 30px rgba(29,27,46,.25)}
+  .ok-badge{display:inline-block;background:#e6f9ee;color:#15803d;padding:6px 12px;border-radius:999px;font-weight:600;font-size:14px}
+  code.uri{display:block;background:var(--panel2);padding:10px 12px;border-radius:12px;font-size:13px;word-break:break-all;margin-top:6px;color:var(--accent)}
   .dev{display:flex;justify-content:space-between;align-items:center}
+  textarea{font-family:ui-monospace,monospace}
 </style>
 </head>
 <body>
@@ -1657,50 +1674,61 @@ function loadScript(src){return new Promise((res,rej)=>{if(document.querySelecto
 const PEERJS="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js";
 const QRJS="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
 const PREFIX="hitbeat-room-";
-let hostPeer=null, hostOnline=false; const conns={};
+let hostPeer=null, hostOnline=false, hostLoading=false, hostBlockedUntil=0; const conns={};
 function roomCode(){const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";return Array.from(crypto.getRandomValues(new Uint8Array(4)),x=>c[x%c.length]).join("");}
 const joinUrl=()=>location.origin+location.pathname+"#join-"+S.room;
 const isBz=()=>S.game==="buzzer";
 
 async function hostStart(){
-  if(hostPeer) return;
-  try{await loadScript(PEERJS);}catch(e){toast(e.message,6000);return;}
-  hostPeer=new Peer(PREFIX+S.room);
-  hostPeer.on("open",()=>{hostOnline=true;render();});
-  hostPeer.on("connection",c=>{
+  // Nur EIN Peer gleichzeitig: Sperre gilt schon während das Skript lädt
+  if(hostPeer||hostLoading||!isBz()||!S.room||Date.now()<hostBlockedUntil) return;
+  hostLoading=true;
+  try{await loadScript(PEERJS);}catch(e){hostLoading=false;toast(e.message,6000);return;}
+  hostLoading=false;
+  if(hostPeer||!isBz()||!S.room) return;
+  const p=new Peer(PREFIX+S.room); p.hbBorn=Date.now(); hostPeer=p;
+  const mine=()=>p===hostPeer; // Ereignisse alter Instanzen ignorieren
+  p.on("open",()=>{if(!mine())return;hostOnline=true;hostRetry=0;clearTimeout(hostRetryT);render();});
+  p.on("connection",c=>{
     c.on("data",d=>onHostMsg(c,d));
     c.on("close",()=>{if(c.hbName&&conns[c.hbName]===c)delete conns[c.hbName];render();});
   });
-  hostPeer.on("open",()=>{hostRetry=0;clearTimeout(hostRetryT);});
-  hostPeer.on("disconnected",()=>{hostOnline=false;render();hostHeal();});
-  hostPeer.on("error",e=>{
-    if(e.type==="unavailable-id"){try{hostPeer.destroy();}catch(x){}hostPeer=null;hostOnline=false;clearTimeout(hostRetryT);hostRetryT=setTimeout(hostStart,4000);}
+  p.on("disconnected",()=>{if(!mine())return;hostOnline=false;render();hostHeal();});
+  p.on("close",()=>{if(!mine())return;hostPeer=null;hostOnline=false;render();hostHeal();});
+  p.on("error",e=>{
+    if(!mine())return;
+    if(e.type==="unavailable-id"){hostDrop();hostBlockedUntil=Date.now()+4000;clearTimeout(hostRetryT);hostRetryT=setTimeout(hostStart,4100);} // Server kennt die alte Verbindung noch -> kurz warten
     else if(NET_ERR.includes(e.type)){hostOnline=false;render();hostHeal();} // Handy war im Standby / Netz weg -> still neu verbinden
     else if(e.type!=="peer-unavailable"){toast("Verbindungsproblem: "+e.type,5000);}
   });
 }
 const NET_ERR=["network","server-error","socket-error","socket-closed","disconnected"];
 let hostRetry=0, hostRetryT=null;
+// Peer verwerfen, ohne dass seine eigenen Ereignisse neue Versuche auslösen
+function hostDrop(){const old=hostPeer;hostPeer=null;hostOnline=false;if(old){try{old.destroy();}catch(e){}}}
 // Verbindung zum Vermittlungs-Server wiederherstellen (mit wachsender Pause, max. 15 s)
 function hostHeal(now){
   clearTimeout(hostRetryT);
-  if(!isBz()||!S.room) return;
+  if(!isBz()||!S.room||S.phase==="setup") return;
   const go=()=>{
     if(hostPeer&&hostPeer.open) return;
-    if(!hostPeer||hostPeer.destroyed){hostPeer=null;hostStart();}
-    else if(hostPeer.disconnected){try{hostPeer.reconnect();}catch(e){try{hostPeer.destroy();}catch(x){}hostPeer=null;hostStart();}}
+    if(!hostPeer||hostPeer.destroyed){hostDrop();hostStart();}
+    else if(hostPeer.disconnected){try{hostPeer.reconnect();}catch(e){hostDrop();hostStart();}}
+    else if(Date.now()-hostPeer.hbBorn>15000){hostDrop();hostStart();} // hängt beim Verbinden fest
     hostRetry++; hostRetryT=setTimeout(()=>hostHeal(),Math.min(15000,2000*hostRetry));
   };
   if(now) go(); else hostRetryT=setTimeout(go,Math.min(15000,1000+1000*hostRetry));
 }
-function hostStop(){clearTimeout(hostRetryT);hostRetry=0;if(hostPeer){try{hostPeer.destroy();}catch(e){}}hostPeer=null;hostOnline=false;for(const k in conns)delete conns[k];}
+function hostStop(){clearTimeout(hostRetryT);hostRetry=0;hostBlockedUntil=0;hostDrop();for(const k in conns)delete conns[k];}
 // Nach Standby / Wechsel der App / WLAN-Wechsel sofort neu verbinden
 function onWake(){
   if(document.visibilityState==="hidden") return;
-  if(hostPeer&&!hostPeer.open) hostHeal(true);
+  if(!JOIN&&isBz()&&S.room&&S.phase!=="setup"&&!(hostPeer&&hostPeer.open)) hostHeal(true);
   if(JOIN&&C.status!=="name"&&C.status!=="connected"&&C.status!=="error") clientConnect();
-  else if(JOIN&&cconn&&!cconn.open&&C.status==="connected"){C.status="reconnecting";renderC();clientConnect();}
+  else if(JOIN&&!(cconn&&cconn.open)&&C.status==="connected"){C.status="reconnecting";renderC();clientConnect();}
 }
+// Wächter: Raum alle 10 s prüfen, falls ein Ereignis verloren ging
+setInterval(()=>{if(!JOIN&&document.visibilityState!=="hidden"&&isBz()&&S.room&&S.phase!=="setup"&&!(hostPeer&&hostPeer.open)&&!hostLoading)hostHeal(true);},10000);
 document.addEventListener("visibilitychange",onWake);
 window.addEventListener("online",onWake);
 window.addEventListener("pageshow",onWake);
@@ -1826,7 +1854,7 @@ function viewBzLobby(){
     <button class="btn small ghost" style="margin-top:8px" onclick="copyText(joinUrl())">Link kopieren</button>
   </div>
   <div class="panel"><h3>Spieler (${S.players.length})</h3>
-    ${S.players.length?S.players.map(p=>`<div class="dev" style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06)"><span>${p.local?"📱":conns[p.name]?"🟢":"⚪"} ${esc(p.name)}</span><span class="small">${p.local?"am Spielleiter-Gerät":conns[p.name]?"verbunden":"getrennt"}</span></div>`).join(""):`<p class="hint">Noch niemand da. ${online?"":"Warte auf die ersten Spieler …"}</p>`}
+    ${S.players.length?S.players.map(p=>`<div class="dev" style="padding:8px 0;border-bottom:1px solid var(--line)"><span>${p.local?"📱":conns[p.name]?"🟢":"⚪"} ${esc(p.name)}</span><span class="small">${p.local?"am Spielleiter-Gerät":conns[p.name]?"verbunden":"getrennt"}</span></div>`).join(""):`<p class="hint">Noch niemand da. ${online?"":"Warte auf die ersten Spieler …"}</p>`}
   </div>
   <button class="btn primary" ${S.players.length?"":"disabled"} onclick="bzBegin()">Spiel starten</button>
   <button class="btn ghost" onclick="newSetup()">Abbrechen</button>`;
@@ -1887,17 +1915,22 @@ async function clientJoin(){
 }
 function clientConnect(){
   clearTimeout(retryT);
-  try{if(cpeer)cpeer.destroy();}catch(e){}
-  cpeer=new Peer();
-  cpeer.on("open",()=>{
-    cconn=cpeer.connect(PREFIX+C.code,{reliable:true});
-    cconn.on("open",()=>{C.status="connected";cconn.send({t:"join",name:C.name});renderC();});
-    cconn.on("data",onClientMsg);
-    cconn.on("close",()=>{C.status="reconnecting";renderC();retryT=setTimeout(clientConnect,3000);});
+  const old=cpeer; cpeer=null; cconn=null; try{if(old)old.destroy();}catch(e){}
+  const p=new Peer(); cpeer=p;
+  const mine=()=>p===cpeer; // Ereignisse alter Versuche ignorieren, sonst brechen sie den neuen ab
+  const retry=ms=>{if(!mine())return;clearTimeout(retryT);retryT=setTimeout(clientConnect,ms);};
+  p.on("open",()=>{
+    if(!mine())return;
+    const c=p.connect(PREFIX+C.code,{reliable:true}); cconn=c;
+    const t=setTimeout(()=>{if(mine()&&cconn===c&&!c.open){C.status="nohost";renderC();retry(0);}},12000);
+    c.on("open",()=>{clearTimeout(t);if(!mine()||cconn!==c)return;C.status="connected";c.send({t:"join",name:C.name});renderC();});
+    c.on("data",d=>{if(cconn===c)onClientMsg(d);});
+    c.on("close",()=>{clearTimeout(t);if(!mine()||cconn!==c)return;C.status="reconnecting";renderC();retry(3000);});
   });
-  cpeer.on("error",e=>{
+  p.on("error",e=>{
+    if(!mine())return;
     C.status=e.type==="peer-unavailable"?"nohost":"reconnecting"; renderC();
-    retryT=setTimeout(clientConnect,4000);
+    retry(4000);
   });
 }
 function vib(ms){try{navigator.vibrate&&navigator.vibrate(ms);}catch(e){}}
@@ -1939,7 +1972,7 @@ function renderC(){
   if(st){a.innerHTML=h+`<div class="panel turnbox"><div class="hint">${st}</div><button class="btn ghost" onclick="C.status='name';renderC()">Name ändern</button></div>`;return;}
   let b="";
   if(v.k==="wait") b=`<div class="panel turnbox"><div class="vinyl stop"></div><div class="hint">${esc(v.text||"Warte …")}</div></div>`;
-  else if(v.k==="buzz") b=`<div class="turnbox" style="padding:30px 0"><button onclick="clientBuzz()" style="width:240px;height:240px;border-radius:50%;border:0;background:radial-gradient(circle at 35% 30%,#ff8a8a,#e0243c 60%,#9e1026);color:#fff;font-family:'Bricolage Grotesque';font-size:44px;font-weight:800;box-shadow:0 14px 0 #6d0a1a,0 20px 50px rgba(224,36,60,.5);cursor:pointer;-webkit-user-select:none">BUZZ!</button><div class="hint" style="margin-top:28px">Erkennst du den Song? Dann drück!</div></div>`;
+  else if(v.k==="buzz") b=`<div class="turnbox" style="padding:30px 0"><button onclick="clientBuzz()" style="width:240px;height:240px;border-radius:50%;border:0;background:radial-gradient(circle at 35% 30%,#ff8a8a,#e0243c 60%,#9e1026);color:#fff;font-family:'Bricolage Grotesque';font-size:44px;font-weight:800;box-shadow:0 12px 0 #a3132b,0 22px 50px rgba(224,36,60,.35);cursor:pointer;-webkit-user-select:none">BUZZ!</button><div class="hint" style="margin-top:28px">Erkennst du den Song? Dann drück!</div></div>`;
   else if(v.k==="buzzed") b=`<div class="panel turnbox"><div class="big">🔔</div><div class="hint">Gebuzzert! Mal sehen, ob du der Schnellste warst …</div></div>`;
   else if(v.k==="tried") b=`<div class="panel turnbox"><div class="hint">Du hast in dieser Runde schon geantwortet. Jetzt sind die anderen dran.</div></div>`;
   else if(v.k==="wrong") b=`<div class="panel turnbox"><div class="verdict no">❌ Leider falsch${v.penalty?" (−1 Token)":""}</div><div class="hint">Jetzt dürfen die anderen buzzern.</div></div>`;
