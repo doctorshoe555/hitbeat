@@ -1669,84 +1669,163 @@ function savesPanel(){
    <button class="btn ghost" onclick="importModal()">Code einfügen</button></div>`;
 }
 
-// ---------- Buzzer-Modus: mehrere Handys, verbunden über PeerJS ----------
-function loadScript(src){return new Promise((res,rej)=>{if(document.querySelector(`script[src="${src}"]`)&&(src.includes("peerjs")?window.Peer:window.QRCode))return res();const s=document.createElement("script");s.src=src;s.onload=()=>res();s.onerror=()=>rej(new Error("Konnte nicht geladen werden: "+src));document.head.appendChild(s);});}
-const PEERJS="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js";
+// ---------- Buzzer-Modus: mehrere Handys, verbunden über MQTT-Broker ----------
+function loadScript(src){return new Promise((res,rej)=>{if(document.querySelector(`script[src="${src}"]`)&&window.QRCode)return res();const s=document.createElement("script");s.src=src;s.onload=()=>res();s.onerror=()=>rej(new Error("Konnte nicht geladen werden: "+src));document.head.appendChild(s);});}
 const QRJS="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
-const PREFIX="hitbeat-room-";
-let hostPeer=null, hostOnline=false, hostLoading=false, hostBlockedUntil=0; const conns={};
-function roomCode(){const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";return Array.from(crypto.getRandomValues(new Uint8Array(4)),x=>c[x%c.length]).join("");}
+// Verbindung ohne WebRTC: Alle Handys reden über öffentliche MQTT-Broker (WebSocket, Port 443-ähnlich).
+// Es laufen zwei Broker parallel, fällt einer aus, trägt der andere. Der Raum lebt auf dem Broker,
+// auch wenn das Spielleiter-Handy zwischendurch im Standby ist.
+const BROKERS=(()=>{const o=LS.get("hb-brokers");return Array.isArray(o)&&o.length?o:["wss://broker.emqx.io:8084/mqtt","wss://broker.hivemq.com:8884/mqtt"];})();
+const TOPIC=r=>"hitbeat/v2/"+r;
+const enc=new TextEncoder(), dec=new TextDecoder();
+function rid(){return Math.random().toString(36).slice(2,10)+Date.now().toString(36);}
+function mqStr(s){const b=typeof s==="string"?enc.encode(s):s;return [b.length>>8,b.length&255,...b];}
+function mqPkt(type,body){const len=[];let n=body.length;do{let d=n%128;n=Math.floor(n/128);if(n>0)d|=128;len.push(d);}while(n>0);return new Uint8Array([type,...len,...body]);}
+// Minimaler MQTT-3.1.1-Client über WebSocket mit automatischem Wiederverbinden
+class MqLink{
+  constructor(url,o){this.url=url;this.o=o;this.ok=false;this.ws=null;this.buf=new Uint8Array(0);this.subs=new Set();this.retry=0;this.pid=1;this.dead=false;this.last=0;this.open();}
+  open(){
+    if(this.dead)return; clearTimeout(this.rt);
+    let ws; try{ws=new WebSocket(this.url,"mqtt");}catch(e){this.ws=null;return this.later();}
+    this.ws=ws; ws.binaryType="arraybuffer"; this.buf=new Uint8Array(0);
+    const ct=setTimeout(()=>{if(ws===this.ws&&!this.ok)this.drop();},10000);
+    ws.onopen=()=>{
+      if(ws!==this.ws)return;
+      const w=this.o.will; let flags=0x02, pay=mqStr(this.o.id);
+      if(w){flags|=0x04|(w.retain?0x20:0);pay=pay.concat(mqStr(w.topic),mqStr(w.payload));}
+      ws.send(mqPkt(0x10,[...mqStr("MQTT"),4,flags,0,30,...pay]));
+    };
+    ws.onmessage=e=>{if(ws===this.ws)this.data(new Uint8Array(e.data));};
+    ws.onclose=ws.onerror=()=>{
+      clearTimeout(ct); if(ws!==this.ws)return;
+      this.ws=null; const was=this.ok; this.ok=false; clearInterval(this.pt);
+      if(was&&this.o.onDown)this.o.onDown(this);
+      this.later();
+    };
+  }
+  later(){if(this.dead)return;clearTimeout(this.rt);this.retry++;this.rt=setTimeout(()=>this.open(),Math.min(10000,500*2**Math.min(this.retry,5)));}
+  drop(){const ws=this.ws;if(!ws)return;ws.onclose&&ws.onclose();try{ws.close();}catch(e){}}
+  // Nach Standby / Netzwechsel: sofort prüfen statt auf den nächsten Versuch zu warten
+  kick(){
+    if(this.dead)return;
+    if(!this.ws){this.retry=0;this.open();return;}
+    if(this.ok&&Date.now()-this.last>8000){this.ping();clearTimeout(this.kt);this.kt=setTimeout(()=>{if(this.ok&&Date.now()-this.last>7000)this.drop();},4000);}
+  }
+  data(chunk){
+    this.last=Date.now();
+    let b=new Uint8Array(this.buf.length+chunk.length); b.set(this.buf); b.set(chunk,this.buf.length);
+    for(;;){
+      if(b.length<2)break;
+      let mul=1,len=0,i=1,d,complete=true;
+      do{if(i>=b.length){complete=false;break;}d=b[i++];len+=(d&127)*mul;mul*=128;}while(d&128);
+      if(!complete||b.length<i+len)break;
+      const h=b[0], body=b.slice(i,i+len); b=b.slice(i+len);
+      this.pkt(h>>4,h,body);
+    }
+    this.buf=b;
+  }
+  pkt(type,h,body){
+    if(type===2){
+      if(body[1]!==0){this.drop();return;}
+      this.ok=true; this.retry=0; clearInterval(this.pt); this.pt=setInterval(()=>this.ping(),20000);
+      for(const t of this.subs)this.sendSub(t);
+      this.o.onUp&&this.o.onUp(this);
+    } else if(type===3){
+      const tl=(body[0]<<8)|body[1], topic=dec.decode(body.subarray(2,2+tl));
+      let off=2+tl; if((h>>1)&3)off+=2;
+      const txt=dec.decode(body.subarray(off)); if(!txt)return;
+      let m; try{m=JSON.parse(txt);}catch(e){return;}
+      if(m&&typeof m==="object"&&this.o.onMsg)this.o.onMsg(topic,m,this);
+    }
+  }
+  ping(){this.raw(new Uint8Array([0xC0,0]));}
+  raw(p){if(this.ws&&this.ws.readyState===1){try{this.ws.send(p);return true;}catch(e){}}return false;}
+  sendSub(t){this.pid=(this.pid%65000)+1;this.raw(mqPkt(0x82,[this.pid>>8,this.pid&255,...mqStr(t),0]));}
+  sub(t){this.subs.add(t);if(this.ok)this.sendSub(t);}
+  pub(topic,obj,retain){if(!this.ok)return false;const p=obj==null?[]:[...enc.encode(JSON.stringify(obj))];return this.raw(mqPkt(0x30|(retain?1:0),[...mqStr(topic),...p]));}
+  close(){this.dead=true;clearTimeout(this.rt);clearInterval(this.pt);if(this.ok)this.raw(new Uint8Array([0xE0,0]));const ws=this.ws;this.ws=null;this.ok=false;try{ws&&ws.close();}catch(e){}}
+}
+// Bündelt alle Broker: senden an alle, doppelte Nachrichten beim Empfang aussortieren
+class Bus{
+  constructor(o){
+    this.o=o; this.seen=new Set();
+    this.links=BROKERS.map(u=>new MqLink(u,{id:"hb"+rid(),will:o.will,
+      onUp:l=>{o.onUp&&o.onUp(l);o.onChange&&o.onChange();},
+      onDown:()=>{o.onChange&&o.onChange();},
+      onMsg:(t,m,l)=>this.msg(t,m,l)}));
+  }
+  get up(){return this.links.some(l=>l.ok);}
+  msg(t,m,l){
+    if(m._id&&!t.endsWith("/host")){if(this.seen.has(m._id))return;this.seen.add(m._id);if(this.seen.size>600)this.seen=new Set([...this.seen].slice(-300));}
+    this.o.onMsg(t,m,l);
+  }
+  sub(t){this.links.forEach(l=>l.sub(t));}
+  pub(t,m,retain){const x=m?{...m,_id:rid(),_ts:Date.now()}:null;let ok=false;this.links.forEach(l=>{if(l.pub(t,x,retain))ok=true;});return ok;}
+  kick(){this.links.forEach(l=>l.kick());}
+  close(){this.links.forEach(l=>l.close());}
+}
+
+// ---------- Buzzer-Modus: Spielleiter-Seite ----------
+let hbus=null, hostOnline=false; const conns={}; // Name -> {cid, seen}
+function roomCode(){const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";return Array.from(crypto.getRandomValues(new Uint8Array(5)),x=>c[x%c.length]).join("");}
+// Fester Raum pro Spielleiter-Handy: gleicher Code und QR-Code bei jedem Spiel
+function myRoom(){let r=LS.get("hb-room");if(typeof r!=="string"||!/^[A-Z0-9]{5}$/.test(r)){r=roomCode();LS.set("hb-room",r);}return r;}
+function newRoomCode(){hostStop();LS.set("hb-room",roomCode());S.room=LS.get("hb-room");save();hostStart();render();toast("Neuer Raum-Code: "+S.room);}
 const joinUrl=()=>location.origin+location.pathname+"#join-"+S.room;
 const isBz=()=>S.game==="buzzer";
-
-async function hostStart(){
-  // Nur EIN Peer gleichzeitig: Sperre gilt schon während das Skript lädt
-  if(hostPeer||hostLoading||!isBz()||!S.room||Date.now()<hostBlockedUntil) return;
-  hostLoading=true;
-  try{await loadScript(PEERJS);}catch(e){hostLoading=false;toast(e.message,6000);return;}
-  hostLoading=false;
-  if(hostPeer||!isBz()||!S.room) return;
-  const p=new Peer(PREFIX+S.room); p.hbBorn=Date.now(); hostPeer=p;
-  const mine=()=>p===hostPeer; // Ereignisse alter Instanzen ignorieren
-  p.on("open",()=>{if(!mine())return;hostOnline=true;hostRetry=0;clearTimeout(hostRetryT);render();});
-  p.on("connection",c=>{
-    c.on("data",d=>onHostMsg(c,d));
-    c.on("close",()=>{if(c.hbName&&conns[c.hbName]===c)delete conns[c.hbName];render();});
+const isOn=name=>!!(conns[name]&&Date.now()-conns[name].seen<50000);
+function hostStart(){
+  if(hbus||!isBz()||!S.room) return;
+  const R=TOPIC(S.room);
+  hbus=new Bus({
+    will:{topic:R+"/host",payload:JSON.stringify({t:"host",on:false}),retain:true},
+    onUp:()=>hostAnnounce(),
+    onChange:()=>{const u=!!(hbus&&hbus.up);if(u!==hostOnline){hostOnline=u;render();}},
+    onMsg:(t,m)=>{if(t===R+"/c")onHostMsg(m);}
   });
-  p.on("disconnected",()=>{if(!mine())return;hostOnline=false;render();hostHeal();});
-  p.on("close",()=>{if(!mine())return;hostPeer=null;hostOnline=false;render();hostHeal();});
-  p.on("error",e=>{
-    if(!mine())return;
-    if(e.type==="unavailable-id"){hostDrop();hostBlockedUntil=Date.now()+4000;clearTimeout(hostRetryT);hostRetryT=setTimeout(hostStart,4100);} // Server kennt die alte Verbindung noch -> kurz warten
-    else if(NET_ERR.includes(e.type)){hostOnline=false;render();hostHeal();} // Handy war im Standby / Netz weg -> still neu verbinden
-    else if(e.type!=="peer-unavailable"){toast("Verbindungsproblem: "+e.type,5000);}
-  });
+  hbus.sub(R+"/c");
 }
-const NET_ERR=["network","server-error","socket-error","socket-closed","disconnected"];
-let hostRetry=0, hostRetryT=null;
-// Peer verwerfen, ohne dass seine eigenen Ereignisse neue Versuche auslösen
-function hostDrop(){const old=hostPeer;hostPeer=null;hostOnline=false;if(old){try{old.destroy();}catch(e){}}}
-// Verbindung zum Vermittlungs-Server wiederherstellen (mit wachsender Pause, max. 15 s)
-function hostHeal(now){
-  clearTimeout(hostRetryT);
-  if(!isBz()||!S.room||S.phase==="setup") return;
-  const go=()=>{
-    if(hostPeer&&hostPeer.open) return;
-    if(!hostPeer||hostPeer.destroyed){hostDrop();hostStart();}
-    else if(hostPeer.disconnected){try{hostPeer.reconnect();}catch(e){hostDrop();hostStart();}}
-    else if(Date.now()-hostPeer.hbBorn>15000){hostDrop();hostStart();} // hängt beim Verbinden fest
-    hostRetry++; hostRetryT=setTimeout(()=>hostHeal(),Math.min(15000,2000*hostRetry));
-  };
-  if(now) go(); else hostRetryT=setTimeout(go,Math.min(15000,1000+1000*hostRetry));
+// Nach jedem (Wieder-)Verbinden: Raum als offen markieren, alle Mitspieler melden sich neu
+function hostAnnounce(){if(!hbus)return;const R=TOPIC(S.room);hbus.pub(R+"/host",{t:"host",on:true},true);pushScores();syncAll();hbus.pub(R+"/ev",{t:"ping"});}
+function hostStop(){
+  if(hbus){try{hbus.pub(TOPIC(S.room)+"/host",{t:"host",on:false},true);}catch(e){}const b=hbus;setTimeout(()=>b.close(),300);}
+  hbus=null; hostOnline=false; for(const k in conns)delete conns[k];
 }
-function hostStop(){clearTimeout(hostRetryT);hostRetry=0;hostBlockedUntil=0;hostDrop();for(const k in conns)delete conns[k];}
 // Nach Standby / Wechsel der App / WLAN-Wechsel sofort neu verbinden
 function onWake(){
   if(document.visibilityState==="hidden") return;
-  if(!JOIN&&isBz()&&S.room&&S.phase!=="setup"&&!(hostPeer&&hostPeer.open)) hostHeal(true);
-  if(JOIN&&C.status!=="name"&&C.status!=="connected"&&C.status!=="error") clientConnect();
-  else if(JOIN&&!(cconn&&cconn.open)&&C.status==="connected"){C.status="reconnecting";renderC();clientConnect();}
+  if(hbus) hbus.kick();
+  if(JOIN&&C.status!=="name"){if(cbus)cbus.kick();else clientConnect();}
 }
-// Wächter: Raum alle 10 s prüfen, falls ein Ereignis verloren ging
-setInterval(()=>{if(!JOIN&&document.visibilityState!=="hidden"&&isBz()&&S.room&&S.phase!=="setup"&&!(hostPeer&&hostPeer.open)&&!hostLoading)hostHeal(true);},10000);
 document.addEventListener("visibilitychange",onWake);
 window.addEventListener("online",onWake);
 window.addEventListener("pageshow",onWake);
-function send(name,msg){const c=conns[name];if(c&&c.open){try{c.send(msg);}catch(e){}}}
-function broadcast(msg){for(const n in conns)send(n,msg);}
+// Anzeige "verbunden/getrennt" aktuell halten
+let presSig="";
+setInterval(()=>{if(!hbus)return;const s=S.players.map(p=>isOn(p.name)?1:0).join("");if(s!==presSig){presSig=s;render();}},10000);
+const pcid=name=>{const p=S.players.find(x=>x.name===name);return p&&p.cid;};
+function send(name,msg){const cid=pcid(name);if(hbus&&cid)hbus.pub(TOPIC(S.room)+"/p/"+cid,{...msg,you:name},true);}
+function broadcast(msg){if(hbus)hbus.pub(TOPIC(S.room)+"/ev",msg);}
 function scores(){return S.players.map(p=>({name:p.name,cards:p.timeline.length,tokens:p.tokens}));}
-function pushScores(){broadcast({t:"scores",players:scores(),target:S.target});}
-function onHostMsg(c,d){
-  if(!d||typeof d!=="object") return;
-  if(d.t==="join"){
-    const name=String(d.name||"").trim().slice(0,20); if(!name) return;
+function pushScores(){if(hbus)hbus.pub(TOPIC(S.room)+"/all",{t:"scores",players:scores(),target:S.target},true);}
+function onHostMsg(d){
+  if(!d||typeof d!=="object"||!d.cid) return;
+  const cid=String(d.cid).slice(0,40);
+  if(d.t==="bye"){for(const n in conns)if(conns[n].cid===cid)delete conns[n];render();return;}
+  const name=String(d.name||"").trim().slice(0,20); if(!name) return;
+  if(d.t==="join"||d.t==="hello"){
     let p=S.players.find(x=>x.name.toLowerCase()===name.toLowerCase());
     if(!p){p={name,tokens:S.startTokens,timeline:[]};if(S.phase!=="bz-lobby")p.timeline.push(draw());S.players.push(p);toast("👋 "+name+" ist beigetreten");}
-    conns[p.name]=c; c.hbName=p.name;
-    send(p.name,{t:"welcome",you:p.name,room:S.room});
-    pushScores(); syncClient(p.name); save(); render();
-  } else if(d.t==="buzz"){ bzBuzz(c.hbName); }
-  else if(d.t==="submit"){ const p=S.players[S.cur]; if(S.phase==="bz-answer"&&p&&p.name===c.hbName) bzEvaluate(d); }
+    const known=isOn(p.name)&&conns[p.name].cid===cid;
+    for(const n in conns)if(conns[n].cid===cid&&n!==p.name)delete conns[n]; // Name gewechselt
+    p.cid=cid; conns[p.name]={cid,seen:Date.now()};
+    if(!known||d.t==="join"){pushScores();syncClient(p.name);save();render();}
+    return;
+  }
+  const n=Object.keys(conns).find(k=>conns[k].cid===cid); if(!n) return;
+  conns[n].seen=Date.now();
+  if(d.t==="buzz") bzBuzz(n);
+  else if(d.t==="submit"){const p=S.players[S.cur]; if(S.phase==="bz-answer"&&p&&p.name===n) bzEvaluate(d);}
 }
 function answerMsg(){
   const p=S.players[S.cur];
@@ -1755,7 +1834,7 @@ function answerMsg(){
   return {t:"answer",tl:sorted(p.timeline).map(info),mc:S.mcGuess!==false?S.mc.map(id=>{const o=info(id);delete o.y;return o;}):null,yg:S.yearGuess!==false,pro:S.mode==="pro"};
 }
 function syncClient(name){
-  if(!conns[name]) return;
+  if(!pcid(name)) return;
   const tried=(S.tried||[]).includes(name);
   if(S.phase==="bz-lobby") send(name,{t:"wait",text:"Warte, bis der Spielleiter startet …"});
   else if(S.phase==="bz-listen") send(name,!S.opened?{t:"wait",text:"Gleich kommt der nächste Song …"}:tried?{t:"tried"}:{t:"open"});
@@ -1769,9 +1848,8 @@ function revealMsg(){const r=S.bzResult,s=song(r.song);return {t:"reveal",title:
 function beep(){try{const a=new (window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.type="square";o.frequency.value=880;o.connect(g);g.connect(a.destination);g.gain.value=.12;o.start();o.stop(a.currentTime+.25);}catch(e){}}
 
 function bzCreate(){
-  if(!/github\.io$|^localhost$|^127\.0\.0\.1$/.test(location.hostname)){modal(`<h2>Nur in der GitHub-Version</h2><p class="hint">Der Buzzer-Modus braucht eine Verbindung zwischen den Handys. Die funktioniert nur unter <a href="https://doctorshoe555.github.io/hitbeat/" style="color:var(--accent2)">doctorshoe555.github.io/hitbeat</a>.</p><button class="btn primary" onclick="closeModal()">OK</button>`);return;}
   hostStop();
-  S.game="buzzer"; S.saveId=null; S.prevPhase=null; S.room=roomCode();
+  S.game="buzzer"; S.saveId=null; S.prevPhase=null; S.room=myRoom();
   S.deck=shuffle(poolIds()); S.tried=[]; S.bzResult=null;
   S.players=S.names.map(n=>n.trim()).filter(Boolean).map(n=>({name:n,tokens:S.startTokens,timeline:[],local:true}));
   S.phase="bz-lobby"; save(); hostStart(); render();
@@ -1843,18 +1921,19 @@ function playControls(){
     <div class="hint">Als Spielleiter siehst du den Titel in Spotify. Spielst du selbst mit, verbinde HitBeat mit Spotify (Menü), dann bleibt er verdeckt.</div>`;
 }
 function viewBzLobby(){
-  const online=S.players.filter(p=>conns[p.name]).length;
+  const online=S.players.filter(p=>isOn(p.name)).length;
   return `<div class="panel turnbox">
     <div class="small">Raum-Code</div>
     <div class="big" style="letter-spacing:8px;font-size:44px">${S.room}</div>
-    <div class="dj">${hostOnline?"🟢 Raum ist offen":"⏳ Raum wird geöffnet …"}</div>
+    <div class="dj">${hostOnline?"🟢 Raum ist offen":"⏳ Verbinde mit dem Raum …"}</div>
     <div id="qr" style="display:flex;justify-content:center;margin:16px auto 6px;background:#fff;padding:10px;border-radius:12px;width:max-content"></div>
     <div class="hint">QR-Code scannen oder Link öffnen, Namen eingeben, fertig.</div>
     <code class="uri">${esc(joinUrl())}</code>
-    <button class="btn small ghost" style="margin-top:8px" onclick="copyText(joinUrl())">Link kopieren</button>
+    <div class="row" style="margin-top:8px;justify-content:center"><button class="btn small ghost" onclick="copyText(joinUrl())">Link kopieren</button><button class="btn small ghost" onclick="newRoomCode()">Neuer Code</button></div>
+    <div class="small" style="margin-top:8px">Der Raum bleibt bestehen: gleicher Code und QR-Code bei jedem Spiel von diesem Handy.</div>
   </div>
   <div class="panel"><h3>Spieler (${S.players.length})</h3>
-    ${S.players.length?S.players.map(p=>`<div class="dev" style="padding:8px 0;border-bottom:1px solid var(--line)"><span>${p.local?"📱":conns[p.name]?"🟢":"⚪"} ${esc(p.name)}</span><span class="small">${p.local?"am Spielleiter-Gerät":conns[p.name]?"verbunden":"getrennt"}</span></div>`).join(""):`<p class="hint">Noch niemand da. ${online?"":"Warte auf die ersten Spieler …"}</p>`}
+    ${S.players.length?S.players.map(p=>`<div class="dev" style="padding:8px 0;border-bottom:1px solid var(--line)"><span>${p.local?"📱":isOn(p.name)?"🟢":"⚪"} ${esc(p.name)}</span><span class="small">${p.local?"am Spielleiter-Gerät":isOn(p.name)?"verbunden":"getrennt"}</span></div>`).join(""):`<p class="hint">Noch niemand da. ${online?"":"Warte auf die ersten Spieler …"}</p>`}
   </div>
   <button class="btn primary" ${S.players.length?"":"disabled"} onclick="bzBegin()">Spiel starten</button>
   <button class="btn ghost" onclick="newSetup()">Abbrechen</button>`;
@@ -1867,15 +1946,15 @@ function viewBzListen(){
     ${S.tried.length?`<div class="small" style="margin-top:6px">Schon falsch: ${S.tried.map(esc).join(", ")}</div>`:""}
     ${playControls()}
   </div>
-  ${S.opened&&left.some(o=>o.p.local||!conns[o.p.name])?`<div class="panel"><h3>Buzzer am Spielleiter-Gerät</h3><div class="small" style="margin-top:4px">Für Spieler ohne eigenes Handy oder mit getrennter Verbindung</div>
-    ${left.filter(o=>o.p.local||!conns[o.p.name]).map(o=>`<button class="btn primary" style="background:var(--bad)" onclick="bzBuzzIdx(${o.i})">🔔 ${esc(o.p.name)}</button>`).join("")}</div>`:""}
+  ${S.opened&&left.some(o=>o.p.local||!isOn(o.p.name))?`<div class="panel"><h3>Buzzer am Spielleiter-Gerät</h3><div class="small" style="margin-top:4px">Für Spieler ohne eigenes Handy oder mit getrennter Verbindung</div>
+    ${left.filter(o=>o.p.local||!isOn(o.p.name)).map(o=>`<button class="btn primary" style="background:var(--bad)" onclick="bzBuzzIdx(${o.i})">🔔 ${esc(o.p.name)}</button>`).join("")}</div>`:""}
   <div class="row">
     <button class="btn ghost" onclick="bzSkip()">Anderer Song</button>
     <button class="btn ghost" ${S.opened?"":"disabled"} onclick="bzGiveUp()">Keiner weiß es, auflösen</button>
   </div>`;
 }
 function viewBzAnswer(){
-  const p=S.players[S.cur], remote=!p.local&&conns[p.name]&&!S.hostAnswer;
+  const p=S.players[S.cur], remote=!p.local&&isOn(p.name)&&!S.hostAnswer;
   if(remote) return `<div class="panel turnbox"><div class="small">Gebuzzert</div><div class="big">🔔 ${esc(p.name)}</div>
     <div class="hint">${esc(p.name)} antwortet auf dem eigenen Handy …</div>
     <button class="btn ghost" onclick="S.hostAnswer=true;render()">Stattdessen hier eingeben</button></div>${tlPanel(p,false)}`;
@@ -1903,35 +1982,42 @@ function postRender(){
 }
 
 // ---------- Mitspieler-Ansicht (#join-CODE) ----------
-const JOIN=(location.hash.match(/^#join-([A-Z0-9]{4})$/i)||[])[1];
+const JOIN=(location.hash.match(/^#join-([A-Z0-9]{4,6})$/i)||[])[1];
 let C={code:JOIN?JOIN.toUpperCase():"",name:LS.get("hb-name")||"",status:"name",view:{k:"wait",text:""},players:[],target:0,me:""};
-let cpeer=null, cconn=null, retryT=null;
-async function clientJoin(){
+const CID=(()=>{let c=LS.get("hb-cid");if(typeof c!=="string"||c.length<6){c="c"+rid();LS.set("hb-cid",c);}return c;})();
+let cbus=null, cHelloT=null; const cTs={}, hostLinks=new Map();
+function clientJoin(){
   const inp=document.getElementById("myName"); if(inp) C.name=inp.value.trim().slice(0,20);
   if(!C.name){toast("Bitte einen Namen eingeben");return;}
   LS.set("hb-name",C.name); C.status="connecting"; renderC();
-  try{await loadScript(PEERJS);}catch(e){C.status="error";C.err=e.message;renderC();return;}
-  clientConnect();
+  if(cbus){cHello("join");cStatus();cbus.kick();} else clientConnect();
+}
+function cSend(m){return !!(cbus&&cbus.pub(TOPIC(C.code)+"/c",{...m,cid:CID,name:C.name}));}
+function cHello(kind){if(C.status!=="name")cSend({t:kind});}
+function cStatus(){
+  if(C.status==="name") return;
+  const up=!!(cbus&&cbus.up), host=[...hostLinks].some(([l,on])=>on&&l.ok);
+  const s=!up?(C.status==="connecting"?"connecting":"reconnecting"):host?"connected":"nohost";
+  if(s!==C.status){C.status=s;renderC();}
 }
 function clientConnect(){
-  clearTimeout(retryT);
-  const old=cpeer; cpeer=null; cconn=null; try{if(old)old.destroy();}catch(e){}
-  const p=new Peer(); cpeer=p;
-  const mine=()=>p===cpeer; // Ereignisse alter Versuche ignorieren, sonst brechen sie den neuen ab
-  const retry=ms=>{if(!mine())return;clearTimeout(retryT);retryT=setTimeout(clientConnect,ms);};
-  p.on("open",()=>{
-    if(!mine())return;
-    const c=p.connect(PREFIX+C.code,{reliable:true}); cconn=c;
-    const t=setTimeout(()=>{if(mine()&&cconn===c&&!c.open){C.status="nohost";renderC();retry(0);}},12000);
-    c.on("open",()=>{clearTimeout(t);if(!mine()||cconn!==c)return;C.status="connected";c.send({t:"join",name:C.name});renderC();});
-    c.on("data",d=>{if(cconn===c)onClientMsg(d);});
-    c.on("close",()=>{clearTimeout(t);if(!mine()||cconn!==c)return;C.status="reconnecting";renderC();retry(3000);});
+  if(cbus){cbus.kick();return;}
+  const R=TOPIC(C.code);
+  cbus=new Bus({
+    will:{topic:R+"/c",payload:JSON.stringify({t:"bye",cid:CID}),retain:false},
+    onUp:()=>cHello("join"),
+    onChange:()=>{for(const l of [...hostLinks.keys()])if(!l.ok)hostLinks.delete(l);cStatus();},
+    onMsg:(t,m,l)=>{
+      if(t===R+"/host"){hostLinks.set(l,!!m.on);cStatus();return;}
+      if(t===R+"/ev"){if(m.t==="ping"){cHello("hello");return;}}
+      else if(m._ts){if(cTs[t]&&m._ts<cTs[t])return;cTs[t]=m._ts;} // veraltete gespeicherte Nachrichten ignorieren
+      if(m.you)C.me=m.you;
+      if(C.status==="name") return;
+      onClientMsg(m);
+    }
   });
-  p.on("error",e=>{
-    if(!mine())return;
-    C.status=e.type==="peer-unavailable"?"nohost":"reconnecting"; renderC();
-    retry(4000);
-  });
+  [R+"/host",R+"/all",R+"/ev",R+"/p/"+CID].forEach(x=>cbus.sub(x));
+  clearInterval(cHelloT); cHelloT=setInterval(()=>cHello("hello"),20000);
 }
 function vib(ms){try{navigator.vibrate&&navigator.vibrate(ms);}catch(e){}}
 function onClientMsg(d){
@@ -1950,8 +2036,8 @@ function onClientMsg(d){
   }
   renderC();
 }
-function clientBuzz(){if(cconn&&cconn.open){cconn.send({t:"buzz"});C.view={k:"buzzed"};vib(60);renderC();}}
-function clientSubmit(){const v=C.view;if(v.slot==null)return;cconn&&cconn.open&&cconn.send({t:"submit",slot:v.slot,mcPick:v.mcPick,yearTip:v.yearTip});C.view={k:"submitted"};renderC();}
+function clientBuzz(){if(cSend({t:"buzz"})){C.view={k:"buzzed"};vib(60);renderC();}else toast("Keine Verbindung, kurz warten …");}
+function clientSubmit(){const v=C.view;if(v.slot==null)return;if(!cSend({t:"submit",slot:v.slot,mcPick:v.mcPick,yearTip:v.yearTip})){toast("Keine Verbindung, kurz warten …");return;}C.view={k:"submitted"};renderC();}
 function cPick(i){C.view.slot=i;renderC();}
 function cMc(id){C.view.mcPick=C.view.mcPick===id?null:id;renderC();}
 function cTimeline(ids,interactive,slot){
@@ -1968,7 +2054,7 @@ function renderC(){
   if(C.players.length) h+=`<div class="chips">${C.players.map(p=>`<div class="chip ${p.name===C.me?"active":""}"><b>${esc(p.name)}</b> · 🎵 ${p.cards}/${C.target} · <span class="tok">● ${p.tokens}</span></div>`).join("")}</div>`;
   if(C.status==="name"){
     a.innerHTML=h+`<div class="panel"><h2>Mitspielen</h2><label>Dein Name</label><input type="text" id="myName" value="${esc(C.name)}" maxlength="20" placeholder="z. B. Anna"><button class="btn primary" onclick="clientJoin()">Beitreten</button></div>`;return;}
-  const st={connecting:"⏳ Verbinde mit dem Raum …",reconnecting:"⏳ Verbindung unterbrochen, verbinde neu …",nohost:"⏳ Raum nicht gefunden. Ist der Spielleiter online? Neuer Versuch läuft …",error:"⚠️ "+esc(C.err||"Fehler")}[C.status];
+  const st={connecting:"⏳ Verbinde mit dem Raum …",reconnecting:"⏳ Verbindung unterbrochen, verbinde neu …",nohost:"⏳ Du bist im Raum. Der Spielleiter ist gerade nicht online, sobald er die App öffnet, geht es los.",error:"⚠️ "+esc(C.err||"Fehler")}[C.status];
   if(st){a.innerHTML=h+`<div class="panel turnbox"><div class="hint">${st}</div><button class="btn ghost" onclick="C.status='name';renderC()">Name ändern</button></div>`;return;}
   let b="";
   if(v.k==="wait") b=`<div class="panel turnbox"><div class="vinyl stop"></div><div class="hint">${esc(v.text||"Warte …")}</div></div>`;
@@ -1997,13 +2083,13 @@ function render(){
   if(S.phase==="setup") a.innerHTML=viewSetup();
   else if(S.phase==="win") a.innerHTML=header()+viewWin();
   else a.innerHTML=header()+({turn:viewTurn,place:viewPlace,reveal:viewReveal,"bz-lobby":viewBzLobby,"bz-listen":viewBzListen,"bz-answer":viewBzAnswer,"bz-reveal":viewBzReveal})[S.phase]();
-  if(isBz()&&S.phase!=="setup"&&!hostPeer) hostStart();
+  if(isBz()&&S.phase!=="setup"&&!hbus) hostStart();
   postRender();
 }
 function header(){
   return `<div class="topbar"><div><h1>Hit<span>Beat</span></h1><div class="sub">Ziel: ${S.target} Karten · ${S.mode==="pro"?"Profi-Modus":"Normal"}</div></div>
   <div style="text-align:right"><button class="linkish" onclick="saveModal()">💾 Speichern</button><br><button class="linkish" onclick="showRules()">Regeln</button><br><button class="linkish" onclick="stopMusic();S.prevPhase=S.phase;S.phase='setup';render()">Menü</button></div></div>
-  <div class="chips">${S.players.map((p,i)=>`<div class="chip ${i===S.cur&&(!isBz()||S.phase==="bz-answer")?"active":""}">${isBz()?(p.local?"📱 ":conns[p.name]?"🟢 ":"⚪ "):""}<b>${esc(p.name)}</b> · 🎵 ${p.timeline.length} · <span class="tok">● ${p.tokens}</span></div>`).join("")}</div>`;
+  <div class="chips">${S.players.map((p,i)=>`<div class="chip ${i===S.cur&&(!isBz()||S.phase==="bz-answer")?"active":""}">${isBz()?(p.local?"📱 ":isOn(p.name)?"🟢 ":"⚪ "):""}<b>${esc(p.name)}</b> · 🎵 ${p.timeline.length} · <span class="tok">● ${p.tokens}</span></div>`).join("")}</div>`;
 }
 function viewSetup(){
   return `<h1>Hit<span>Beat</span></h1><div class="sub">Songs hören, Jahr schätzen, Zeitleiste bauen. Ohne Karten, Musik kommt aus Spotify.</div>
