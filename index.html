@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HitBeat – Musik-Zeitleisten-Spiel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0f0d1a; --panel:#1a1730; --panel2:#24203f; --ink:#f4f1ff; --muted:#a59fc7;
+    --accent:#ff4f8b; --accent2:#3ee0c5; --gold:#ffc94a; --bad:#ff6b5b; --good:#3ee08a;
+    --radius:16px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
+  body{min-height:100vh;background:
+    radial-gradient(700px 400px at 100% -10%, rgba(255,79,139,.18), transparent 60%),
+    radial-gradient(600px 400px at -10% 110%, rgba(62,224,197,.14), transparent 60%), var(--bg)}
+  .wrap{max-width:720px;margin:0 auto;padding:18px 16px 60px}
+  h1,h2,h3{font-family:"Bricolage Grotesque",Inter,sans-serif;margin:0}
+  h1{font-size:30px;font-weight:800;letter-spacing:-.5px}
+  h1 span{color:var(--accent)}
+  h2{font-size:22px;font-weight:700;margin-bottom:10px}
+  .sub{color:var(--muted);font-size:14px;margin-top:4px}
+  .panel{background:var(--panel);border-radius:var(--radius);padding:16px;margin-top:14px;border:1px solid rgba(255,255,255,.06)}
+  label{display:block;font-size:13px;color:var(--muted);margin:12px 0 6px}
+  input[type=text],input[type=number],select{width:100%;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:var(--panel2);color:var(--ink);font-size:16px;font-family:inherit}
+  .row{display:flex;gap:8px;align-items:center}
+  .row>*{flex:1}
+  .btn{appearance:none;border:0;border-radius:14px;padding:14px 16px;font-size:16px;font-weight:600;font-family:inherit;cursor:pointer;background:var(--panel2);color:var(--ink);display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;width:100%;margin-top:10px;transition:transform .08s}
+  .btn:active{transform:scale(.97)}
+  .btn.primary{background:var(--accent);color:#fff}
+  .btn.spotify{background:#1ed760;color:#06210f;font-size:18px;padding:18px}
+  .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,.14);color:var(--muted)}
+  .btn.small{padding:9px 12px;font-size:14px;width:auto;margin-top:0}
+  .btn:disabled{opacity:.4;pointer-events:none}
+  .seg{display:flex;background:var(--panel2);border-radius:12px;padding:4px;gap:4px}
+  .seg button{flex:1;border:0;background:transparent;color:var(--muted);padding:10px 6px;border-radius:9px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer}
+  .seg button.on{background:var(--accent2);color:#06211d}
+  .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-top:12px}
+  .chip{flex:0 0 auto;background:var(--panel);border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:7px 12px;font-size:13px;white-space:nowrap}
+  .chip.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .chip b{font-weight:600}
+  .tok{color:var(--gold)}
+  .turnbox{text-align:center}
+  .big{font-family:"Bricolage Grotesque";font-size:34px;font-weight:800;line-height:1.05}
+  .dj{display:inline-block;background:rgba(62,224,197,.14);color:var(--accent2);padding:6px 12px;border-radius:999px;font-size:14px;font-weight:600;margin-top:10px}
+  .hint{color:var(--muted);font-size:14px;line-height:1.45;margin-top:10px}
+  .vinyl{width:120px;height:120px;margin:16px auto 4px;border-radius:50%;background:
+    radial-gradient(circle,var(--accent) 0 14%,#111 15% 17%,#1c1c1c 18% 30%,#111 31% 32%,#1c1c1c 33% 46%,#111 47% 48%,#1c1c1c 49% 62%,#111 63% 64%,#1c1c1c 65%);animation:spin 3s linear infinite;box-shadow:0 10px 40px rgba(255,79,139,.25)}
+  .vinyl.stop{animation-play-state:paused}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .timeline{display:flex;flex-wrap:wrap;gap:6px;align-items:stretch;margin-top:10px}
+  .card{background:linear-gradient(160deg,#2c2752,#201c3b);border-radius:12px;padding:8px 10px;min-width:84px;max-width:140px;flex:0 0 auto;border:1px solid rgba(255,255,255,.08)}
+  .card .y{font-family:"Bricolage Grotesque";font-weight:800;font-size:22px;color:var(--gold)}
+  .card .t{font-size:11.5px;line-height:1.25;color:var(--ink);margin-top:2px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .card .a{font-size:11px;color:var(--muted);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .card.new{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2) inset}
+  .slot{flex:0 0 auto;width:40px;border-radius:12px;border:2px dashed rgba(255,255,255,.18);background:transparent;color:var(--muted);font-size:20px;cursor:pointer;min-height:64px;font-family:inherit}
+  .slot.sel{border-style:solid;border-color:var(--accent);background:rgba(255,79,139,.18);color:#fff}
+  .slot.ch{border-style:solid;border-color:var(--gold);background:rgba(255,201,74,.16);color:#fff}
+  .slot.both{border-color:var(--accent)}
+  .result{text-align:center;padding:6px 0}
+  .result .year{font-family:"Bricolage Grotesque";font-size:64px;font-weight:800;color:var(--gold);line-height:1}
+  .result .title{font-size:20px;font-weight:600;margin-top:6px}
+  .result .artist{color:var(--muted)}
+  .verdict{margin-top:14px;padding:12px;border-radius:12px;font-weight:600}
+  .verdict.ok{background:rgba(62,224,138,.14);color:var(--good)}
+  .verdict.no{background:rgba(255,107,91,.14);color:var(--bad)}
+  .verdict.neutral{background:var(--panel2);color:var(--ink)}
+  .toggle{display:flex;align-items:center;gap:12px;background:var(--panel2);border-radius:12px;padding:12px 14px;margin-top:10px;cursor:pointer;user-select:none}
+  .toggle .box{width:26px;height:26px;border-radius:8px;border:2px solid var(--muted);display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-weight:800}
+  .toggle.on .box{background:var(--good);border-color:var(--good);color:#062}
+  .players .prow{display:flex;gap:8px;margin-top:8px}
+  .players .prow input{flex:1}
+  .x{width:46px;flex:0 0 46px;border-radius:12px;border:0;background:var(--panel2);color:var(--muted);font-size:18px;cursor:pointer}
+  .modal-bg{position:fixed;inset:0;background:rgba(5,4,12,.7);display:flex;align-items:flex-end;justify-content:center;z-index:10}
+  .modal{background:var(--panel);border-radius:20px 20px 0 0;padding:20px 16px 28px;width:100%;max-width:720px;max-height:85vh;overflow:auto}
+  .rules p,.rules li{color:var(--muted);font-size:14px;line-height:1.5}
+  .rules b{color:var(--ink)}
+  .topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .linkish{background:none;border:0;color:var(--muted);font-family:inherit;font-size:13px;text-decoration:underline;cursor:pointer;padding:4px}
+  .confetti{font-size:54px;text-align:center}
+  .small{font-size:12.5px;color:var(--muted)}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#2c2752;color:var(--ink);padding:12px 16px;border-radius:12px;font-size:14px;max-width:90%;z-index:20;box-shadow:0 8px 30px rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.1)}
+  .ok-badge{display:inline-block;background:rgba(30,215,96,.15);color:#1ed760;padding:6px 12px;border-radius:999px;font-weight:600;font-size:14px}
+  code.uri{display:block;background:var(--panel2);padding:10px 12px;border-radius:10px;font-size:13px;word-break:break-all;margin-top:6px;color:var(--accent2)}
+  .dev{display:flex;justify-content:space-between;align-items:center}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div id="modal"></div>
+
+<script>
+// ---------- Songliste: Titel | Interpret | Jahr | d = deutschsprachig ----------
+const RAW = `
+Rock Around the Clock|Bill Haley & His Comets|1954
+Jailhouse Rock|Elvis Presley|1957
+Johnny B. Goode|Chuck Berry|1958
+Stand by Me|Ben E. King|1961
+Hit the Road Jack|Ray Charles|1961
+Twist and Shout|The Beatles|1963
+She Loves You|The Beatles|1963
+I Want to Hold Your Hand|The Beatles|1963
+(I Can't Get No) Satisfaction|The Rolling Stones|1965
+My Generation|The Who|1965
+Marmor, Stein und Eisen bricht|Drafi Deutscher|1965|d
+Good Vibrations|The Beach Boys|1966
+Paint It Black|The Rolling Stones|1966
+Respect|Aretha Franklin|1967
+All You Need Is Love|The Beatles|1967
+Brown Eyed Girl|Van Morrison|1967
+Daydream Believer|The Monkees|1967
+Hey Jude|The Beatles|1968
+Mrs. Robinson|Simon & Garfunkel|1968
+Born to Be Wild|Steppenwolf|1968
+In the Ghetto|Elvis Presley|1969
+Proud Mary|Creedence Clearwater Revival|1969
+Sweet Caroline|Neil Diamond|1969
+Bridge over Troubled Water|Simon & Garfunkel|1970
+Let It Be|The Beatles|1970
+Paranoid|Black Sabbath|1970
+Lola|The Kinks|1970
+Imagine|John Lennon|1971
+American Pie|Don McLean|1971
+Waterloo|ABBA|1974
+Sweet Home Alabama|Lynyrd Skynyrd|1974
+Griechischer Wein|Udo Jürgens|1974|d
+Bohemian Rhapsody|Queen|1975
+Mamma Mia|ABBA|1975
+Dancing Queen|ABBA|1976
+Go Your Own Way|Fleetwood Mac|1976
+Ein Bett im Kornfeld|Jürgen Drews|1976|d
+Stayin' Alive|Bee Gees|1977
+Heroes|David Bowie|1977
+Y.M.C.A.|Village People|1978
+Le Freak|Chic|1978
+I Will Survive|Gloria Gaynor|1978
+September|Earth, Wind & Fire|1978
+Another Brick in the Wall (Part 2)|Pink Floyd|1979
+Highway to Hell|AC/DC|1979
+Video Killed the Radio Star|The Buggles|1979
+Heart of Glass|Blondie|1979
+Moskau|Dschinghis Khan|1979|d
+Call Me|Blondie|1980
+Another One Bites the Dust|Queen|1980
+Upside Down|Diana Ross|1980
+Tainted Love|Soft Cell|1981
+Don't Stop Believin'|Journey|1981
+Skandal im Sperrbezirk|Spider Murphy Gang|1981|d
+Polonäse Blankenese|Gottlieb Wendehals|1981|d
+Eye of the Tiger|Survivor|1982
+Africa|Toto|1982
+Da Da Da|Trio|1982|d
+Ein bisschen Frieden|Nicole|1982|d
+Ich war noch niemals in New York|Udo Jürgens|1982|d
+Sternenhimmel|Hubert Kah|1982|d
+Billie Jean|Michael Jackson|1983
+Sweet Dreams (Are Made of This)|Eurythmics|1983
+Girls Just Want to Have Fun|Cyndi Lauper|1983
+Every Breath You Take|The Police|1983
+99 Luftballons|Nena|1983|d
+Major Tom (Völlig losgelöst)|Peter Schilling|1983|d
+Wahnsinn|Wolfgang Petry|1983|d
+Footloose|Kenny Loggins|1984
+Like a Virgin|Madonna|1984
+Wake Me Up Before You Go-Go|Wham!|1984
+Last Christmas|Wham!|1984
+Careless Whisper|George Michael|1984
+Purple Rain|Prince|1984
+Big in Japan|Alphaville|1984
+Forever Young|Alphaville|1984
+Männer|Herbert Grönemeyer|1984|d
+Take On Me|a-ha|1985
+Running Up That Hill|Kate Bush|1985
+Rock Me Amadeus|Falco|1985|d
+Brother Louie|Modern Talking|1986
+Livin' on a Prayer|Bon Jovi|1986
+The Final Countdown|Europe|1986
+Never Gonna Give You Up|Rick Astley|1987
+With or Without You|U2|1987
+Faith|George Michael|1987
+Don't Worry, Be Happy|Bobby McFerrin|1988
+Looking for Freedom|David Hasselhoff|1988
+Like a Prayer|Madonna|1989
+Pump Up the Jam|Technotronic|1989
+Vogue|Madonna|1990
+Ice Ice Baby|Vanilla Ice|1990
+Nothing Compares 2 U|Sinéad O'Connor|1990
+Unbelievable|EMF|1990
+Verdammt, ich lieb' dich|Matthias Reim|1990|d
+Smells Like Teen Spirit|Nirvana|1991
+Losing My Religion|R.E.M.|1991
+Black or White|Michael Jackson|1991
+Rhythm Is a Dancer|Snap!|1992
+I Will Always Love You|Whitney Houston|1992
+Die da!?!|Die Fantastischen Vier|1992|d
+What Is Love|Haddaway|1993
+Mr. Vain|Culture Beat|1993
+Alles nur geklaut|Die Prinzen|1993|d
+Zombie|The Cranberries|1994
+Wonderwall|Oasis|1995
+Gangsta's Paradise|Coolio|1995
+Children|Robert Miles|1995
+Lemon Tree|Fool's Garden|1995
+Wannabe|Spice Girls|1996
+Barbie Girl|Aqua|1997
+My Heart Will Go On|Céline Dion|1997
+Bitter Sweet Symphony|The Verve|1997
+Everybody (Backstreet's Back)|Backstreet Boys|1997
+Torn|Natalie Imbruglia|1997
+...Baby One More Time|Britney Spears|1998
+Believe|Cher|1998
+Mambo No. 5|Lou Bega|1999
+Livin' la Vida Loca|Ricky Martin|1999
+Sandstorm|Darude|1999
+Oops!... I Did It Again|Britney Spears|2000
+Lose Yourself|Eminem|2002
+Mensch|Herbert Grönemeyer|2002|d
+Hey Ya!|OutKast|2003
+Crazy in Love|Beyoncé|2003
+Seven Nation Army|The White Stripes|2003
+In da Club|50 Cent|2003
+Toxic|Britney Spears|2004
+Yeah!|Usher|2004
+Crazy|Gnarls Barkley|2006
+Hips Don't Lie|Shakira|2006
+Rehab|Amy Winehouse|2006
+Chasing Cars|Snow Patrol|2006
+Umbrella|Rihanna|2007
+Junge|Die Ärzte|2007|d
+Viva la Vida|Coldplay|2008
+Poker Face|Lady Gaga|2008
+Use Somebody|Kings of Leon|2008
+Haus am See|Peter Fox|2008|d
+I Gotta Feeling|The Black Eyed Peas|2009
+Bad Romance|Lady Gaga|2009
+Waka Waka (This Time for Africa)|Shakira|2010
+Rolling in the Deep|Adele|2010
+Somebody That I Used to Know|Gotye|2011
+Call Me Maybe|Carly Rae Jepsen|2011
+Party Rock Anthem|LMFAO|2011
+Someone Like You|Adele|2011
+Gangnam Style|PSY|2012
+Tage wie diese|Die Toten Hosen|2012|d
+Get Lucky|Daft Punk|2013
+Happy|Pharrell Williams|2013
+Royals|Lorde|2013
+Wake Me Up|Avicii|2013
+Atemlos durch die Nacht|Helene Fischer|2013|d
+Uptown Funk|Mark Ronson ft. Bruno Mars|2014
+Shake It Off|Taylor Swift|2014
+Thinking Out Loud|Ed Sheeran|2014
+Auf uns|Andreas Bourani|2014|d
+Hello|Adele|2015
+Can't Stop the Feeling!|Justin Timberlake|2016
+Shape of You|Ed Sheeran|2017
+Despacito|Luis Fonsi ft. Daddy Yankee|2017
+Bad Guy|Billie Eilish|2019
+Blinding Lights|The Weeknd|2019
+Dance Monkey|Tones and I|2019
+Levitating|Dua Lipa|2020
+Heat Waves|Glass Animals|2020
+Drivers License|Olivia Rodrigo|2021
+Bad Habits|Ed Sheeran|2021
+As It Was|Harry Styles|2022
+Flowers|Miley Cyrus|2023
+`;
+const SONGS = RAW.trim().split("\n").map((l,i)=>{const [t,a,y,f]=l.split("|");return {id:i,title:t,artist:a,year:+y,de:f==="d"};});
+
+// ---------- Zustand ----------
+const KEY="hitbeat-v1";
+let S = load() || fresh();
+function fresh(){return {phase:"setup",names:["",""],target:10,mode:"normal",pool:"all",startTokens:2,yearGuess:true,mcGuess:true,players:[],cur:0,deck:[],song:null,slot:null,ch:null,guessed:false,opened:false,log:null};}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));return s&&s.phase?s:null;}catch(e){return null;}}
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+const song=id=>SONGS[id];
+const sorted=tl=>tl.slice().sort((x,y)=>song(x).year-song(y).year||x-y);
+const P=()=>S.players[S.cur];
+const djIndex=()=>S.players.length<2?S.cur:(S.cur-1+S.players.length)%S.players.length;
+const MAXTOK=5;
+
+function slotOk(tl,slot,y){const s=sorted(tl).map(id=>song(id).year);return (slot===0||s[slot-1]<=y)&&(slot===s.length||y<=s[slot]);}
+function draw(){if(!S.deck.length){S.deck=shuffle(poolIds().filter(id=>!S.players.some(p=>p.timeline.includes(id))));}return S.deck.pop();}
+function poolIds(){return SONGS.filter(s=>S.pool==="all"||(S.pool==="de"?s.de:!s.de)).map(s=>s.id);}
+
+// ---------- Spotify (PKCE + Web API, steuert ein Spotify-Connect-Gerät) ----------
+const LS={get(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}},del(k){try{localStorage.removeItem(k);}catch(e){}}};
+const REDIRECT=location.origin+location.pathname;
+const SCOPES="user-read-playback-state user-modify-playback-state";
+const SP={
+  get cid(){return LS.get("hb-cid")||"ef5b4a8591514b889f1827ebafa80be4";},
+  get tok(){return LS.get("hb-tok");},
+  get connected(){return !!(this.tok&&this.tok.refresh);},
+  get device(){return LS.get("hb-dev");},
+  get startAt(){return LS.get("hb-start")||0;},
+};
+function toast(msg,ms=3500){const d=document.createElement("div");d.className="toast";d.textContent=msg;document.body.appendChild(d);setTimeout(()=>d.remove(),ms);}
+const b64url=buf=>btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+function randStr(n){const c="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";const a=crypto.getRandomValues(new Uint8Array(n));return Array.from(a,x=>c[x%c.length]).join("");}
+
+async function spLogin(){
+  const cid=(document.getElementById("cid")?.value||SP.cid).trim();
+  if(!cid){toast("Bitte zuerst die Client ID eintragen.");return;}
+  LS.set("hb-cid",cid);
+  const verifier=randStr(64), state=randStr(16);
+  LS.set("hb-pkce",{verifier,state});
+  const challenge=b64url(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(verifier)));
+  const p=new URLSearchParams({client_id:cid,response_type:"code",redirect_uri:REDIRECT,scope:SCOPES,code_challenge_method:"S256",code_challenge:challenge,state});
+  location.href="https://accounts.spotify.com/authorize?"+p;
+}
+async function tokenRequest(params){
+  const r=await fetch("https://accounts.spotify.com/api/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams(params)});
+  const j=await r.json();
+  if(!r.ok) throw new Error(j.error_description||j.error||"Token-Fehler");
+  const old=SP.tok||{};
+  LS.set("hb-tok",{access:j.access_token,refresh:j.refresh_token||old.refresh,exp:Date.now()+(j.expires_in-60)*1000});
+}
+async function spCallback(){
+  const q=new URLSearchParams(location.search);
+  if(!q.has("code")&&!q.has("error")) return;
+  history.replaceState(null,"",location.pathname);
+  if(q.has("error")){toast("Spotify-Anmeldung abgebrochen: "+q.get("error"));return;}
+  const pk=LS.get("hb-pkce");
+  if(!pk||pk.state!==q.get("state")){toast("Anmeldung ungültig, bitte erneut verbinden.");return;}
+  try{await tokenRequest({grant_type:"authorization_code",code:q.get("code"),redirect_uri:REDIRECT,client_id:SP.cid,code_verifier:pk.verifier});LS.del("hb-pkce");toast("✅ Mit Spotify verbunden");}
+  catch(e){toast("Anmeldung fehlgeschlagen: "+e.message,6000);}
+}
+async function accessToken(){
+  const t=SP.tok; if(!t) throw new Error("Nicht verbunden");
+  if(Date.now()>t.exp) await tokenRequest({grant_type:"refresh_token",refresh_token:t.refresh,client_id:SP.cid});
+  return SP.tok.access;
+}
+async function api(method,path,body,retry=true){
+  const r=await fetch("https://api.spotify.com/v1"+path,{method,headers:{Authorization:"Bearer "+await accessToken(),"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined});
+  if(r.status===401&&retry){const t=SP.tok;t.exp=0;LS.set("hb-tok",t);return api(method,path,body,false);}
+  return r;
+}
+function spLogout(){LS.del("hb-tok");LS.del("hb-dev");render();}
+
+const norm=s=>s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
+async function findUri(s){
+  const cache=LS.get("hb-uris")||{}; const key=s.title+"|"+s.artist;
+  if(cache[key]) return cache[key];
+  const main=s.artist.split(/ ft\.| feat\.| & /i)[0];
+  const tries=[`track:${s.title} artist:${main}`,`${s.title} ${main}`];
+  for(const q of tries){
+    const r=await api("GET","/search?"+new URLSearchParams({q,type:"track",limit:"10",market:"DE"}));
+    if(!r.ok) continue;
+    const items=((await r.json()).tracks||{}).items||[];
+    const nt=norm(s.title), na=norm(main);
+    const good=items.filter(t=>t.artists.some(a=>norm(a.name).includes(na)||na.includes(norm(a.name))));
+    // Bevorzugt Versionen ohne "Live", "Remix", "Karaoke" usw.
+    const bad=/live|remix|karaoke|instrumental|cover|tribute|acoustic|re-record|edit\)/i;
+    const pick=good.find(t=>norm(t.name).startsWith(nt)&&!bad.test(t.name))||good.find(t=>!bad.test(t.name))||good[0];
+    if(pick){cache[key]=pick.uri;LS.set("hb-uris",cache);return pick.uri;}
+  }
+  return null;
+}
+async function getDevices(){const r=await api("GET","/me/player/devices");if(!r.ok) return [];return (await r.json()).devices||[];}
+async function chooseDevice(){
+  modal(`<h2>Wiedergabegerät</h2><p class="sub">Lädt…</p>`);
+  let devs=[];try{devs=await getDevices();}catch(e){}
+  modal(`<h2>Wiedergabegerät</h2>
+   ${devs.length?devs.map(d=>`<button class="btn ${SP.device&&SP.device.id===d.id?"primary":""}" onclick='setDevice(${JSON.stringify({id:d.id,name:d.name}).replace(/'/g,"&#39;")})'><span class="dev" style="width:100%"><span>${esc(d.name)}</span><span class="small">${esc(d.type)}</span></span></button>`).join("")
+   :`<p class="hint">Kein Gerät gefunden. Öffne die <b>Spotify-App</b> auf dem Handy, Lautsprecher oder PC, spiel kurz irgendetwas ab und tippe dann auf Aktualisieren.</p>`}
+   <button class="btn ghost" onclick="chooseDevice()">↻ Aktualisieren</button>
+   <button class="btn ghost" onclick="closeModal()">Schließen</button>`);
+}
+function setDevice(d){LS.set("hb-dev",d);closeModal();render();toast("Gerät: "+d.name);}
+let busy=false;
+async function spPlay(){
+  if(busy) return; busy=true;
+  try{
+    if(!SP.device){busy=false;chooseDevice();return;}
+    const s=song(S.song);
+    const uri=await findUri(s);
+    if(!uri){toast("Song nicht auf Spotify gefunden, nächster Song kommt.");S.song=draw();S.opened=false;save();busy=false;return spPlay();}
+    let r=await api("PUT","/me/player/play?device_id="+encodeURIComponent(SP.device.id),{uris:[uri],position_ms:SP.startAt});
+    if(r.status===404){toast("Gerät nicht erreichbar. Öffne Spotify dort und wähle es neu.",5000);LS.del("hb-dev");busy=false;chooseDevice();return;}
+    if(r.status===403){toast("Spotify verweigert die Wiedergabe (Premium nötig oder Funktion eingeschränkt).",6000);}
+    else if(!r.ok){const j=await r.json().catch(()=>({}));toast("Fehler beim Abspielen: "+((j.error&&j.error.message)||r.status),6000);}
+    else {S.opened=true;S.playing=true;save();render();}
+  }catch(e){toast("Fehler: "+e.message,6000);}
+  busy=false;
+}
+async function spPause(){try{await api("PUT","/me/player/pause"+(SP.device?"?device_id="+encodeURIComponent(SP.device.id):""));S.playing=false;render();}catch(e){toast("Fehler: "+e.message);}}
+async function copyText(t){try{await navigator.clipboard.writeText(t);toast("Kopiert");}catch(e){toast("Bitte manuell kopieren");}}
+
+function spotifyPanel(){
+  if(location.protocol==="file:"||!/github\.io$|^localhost$|^127\.0\.0\.1$/.test(location.hostname)) return `<div class="panel"><h2>Spotify</h2><p class="hint">Die direkte Spotify-Verbindung funktioniert nur in der GitHub-Version: <a href="https://doctorshoe555.github.io/hitbeat/" style="color:var(--accent2)">doctorshoe555.github.io/hitbeat</a>. Ohne Verbindung startet der DJ den Song per Link in der Spotify-App.</p></div>`;
+  if(SP.connected) return `<div class="panel"><h2>Spotify</h2><span class="ok-badge">✓ Verbunden</span>
+    <label>Wiedergabegerät</label>
+    <button class="btn" style="margin-top:0" onclick="chooseDevice()">${SP.device?"🔊 "+esc(SP.device.name)+" · ändern":"Gerät wählen"}</button>
+    <label>Song starten ab</label>
+    <div class="seg">${[[0,"Anfang"],[30000,"0:30"],[45000,"0:45"]].map(([v,l])=>`<button class="${SP.startAt===v?"on":""}" onclick="LS.set('hb-start',${v});render()">${l}</button>`).join("")}</div>
+    <div class="small" style="margin-top:6px">Tipp: Spielt über einen Lautsprecher, den Fernseher oder ein zweites Handy, das umgedreht liegt. Sonst zeigt Spotify den Titel an.</div>
+    <button class="btn ghost" onclick="spLogout()">Verbindung trennen</button></div>`;
+  return `<div class="panel"><h2>Spotify verbinden</h2>
+    <p class="hint">Mit Verbindung spielt die App die Songs verdeckt ab, niemand sieht den Titel. Ohne Verbindung startet der DJ sie per Link.</p>
+    <label>Client ID (aus dem Spotify Developer Dashboard)</label>
+    <input type="text" id="cid" value="${esc(SP.cid)}" placeholder="z. B. 1a2b3c…" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <label>Diese Redirect URI im Dashboard eintragen:</label>
+    <code class="uri">${esc(REDIRECT)}</code>
+    <button class="btn small ghost" style="margin-top:8px" onclick="copyText(REDIRECT)">Kopieren</button>
+    <button class="btn spotify" onclick="spLogin()">Mit Spotify verbinden</button></div>`;
+}
+
+// ---------- Rendering ----------
+function render(){
+  save();
+  const a=$("#app");
+  if(S.phase==="setup") a.innerHTML=viewSetup();
+  else if(S.phase==="win") a.innerHTML=header()+viewWin();
+  else a.innerHTML=header()+({turn:viewTurn,place:viewPlace,reveal:viewReveal})[S.phase]();
+}
+function header(){
+  return `<div class="topbar"><div><h1>Hit<span>Beat</span></h1><div class="sub">Ziel: ${S.target} Karten · ${S.mode==="pro"?"Profi-Modus":"Normal"}</div></div>
+  <div style="text-align:right"><button class="linkish" onclick="showRules()">Regeln</button><br><button class="linkish" onclick="askReset()">Neues Spiel</button></div></div>
+  <div class="chips">${S.players.map((p,i)=>`<div class="chip ${i===S.cur?"active":""}"><b>${esc(p.name)}</b> · 🎵 ${p.timeline.length} · <span class="tok">● ${p.tokens}</span></div>`).join("")}</div>`;
+}
+function viewSetup(){
+  return `<h1>Hit<span>Beat</span></h1><div class="sub">Songs hören, Jahr schätzen, Zeitleiste bauen. Ohne Karten, Musik kommt aus Spotify.</div>
+  <div class="panel players"><h2>Spieler</h2>
+    ${S.names.map((n,i)=>`<div class="prow"><input type="text" placeholder="Spieler ${i+1}" value="${esc(n)}" oninput="S.names[${i}]=this.value;save()">${S.names.length>1?`<button class="x" onclick="S.names.splice(${i},1);render()">✕</button>`:""}</div>`).join("")}
+    ${S.names.length<10?`<button class="btn ghost" onclick="S.names.push('');render()">+ Spieler hinzufügen</button>`:""}
+  </div>
+  <div class="panel"><h2>Einstellungen</h2>
+    <label>Karten zum Sieg</label>
+    <div class="seg">${[5,8,10,12].map(n=>`<button class="${S.target===n?"on":""}" onclick="S.target=${n};render()">${n}</button>`).join("")}</div>
+    <label>Modus</label>
+    <div class="seg"><button class="${S.mode==="normal"?"on":""}" onclick="S.mode='normal';render()">Normal</button><button class="${S.mode==="pro"?"on":""}" onclick="S.mode='pro';render()">Profi</button></div>
+    <div class="small" style="margin-top:6px">${S.mode==="pro"?"Profi: Du behältst die Karte nur, wenn Position <b>und</b> Titel + Interpret stimmen.":"Normal: Richtige Position reicht, um die Karte zu behalten."}</div>
+    <label>Songauswahl</label>
+    <div class="seg"><button class="${S.pool==="all"?"on":""}" onclick="S.pool='all';render()">Alle</button><button class="${S.pool==="int"?"on":""}" onclick="S.pool='int';render()">International</button><button class="${S.pool==="de"?"on":""}" onclick="S.pool='de';render()">Deutsch</button></div>
+    <div class="small" style="margin-top:6px">${poolIds().length} Songs von 1954 bis 2023</div>
+    <label>Start-Tokens pro Spieler</label>
+    <div class="seg">${[0,1,2,3].map(n=>`<button class="${S.startTokens===n?"on":""}" onclick="S.startTokens=${n};render()">${n}</button>`).join("")}</div>
+  </div>
+  <div class="panel"><h2>Extras</h2>
+    <div class="toggle ${S.mcGuess!==false?"on":""}" onclick="S.mcGuess=!(S.mcGuess!==false);render()"><div class="box">${S.mcGuess!==false?"✓":""}</div><div><b>Song erraten per Auswahl</b><div class="small">4 Möglichkeiten, die App prüft. Richtig: +1 Token</div></div></div>
+    <div class="toggle ${S.yearGuess!==false?"on":""}" onclick="S.yearGuess=!(S.yearGuess!==false);render()"><div class="box">${S.yearGuess!==false?"✓":""}</div><div><b>Jahr exakt schätzen</b><div class="small">Volltreffer: +2 Tokens · ±1 Jahr: +1 Token</div></div></div>
+  </div>
+  ${spotifyPanel()}
+  <button class="btn primary" onclick="start()">Spiel starten</button>
+  <button class="btn ghost" onclick="showRules()">So funktioniert's</button>`;
+}
+function start(){
+  const names=S.names.map(n=>n.trim()).filter(Boolean);
+  if(!names.length){S.names[0]="Spieler 1";names.push("Spieler 1");}
+  if(S.pool==="de"&&S.target*names.length+names.length>poolIds().length) S.target=Math.max(5,Math.floor(poolIds().length/names.length)-2);
+  S.deck=shuffle(poolIds());
+  S.players=names.map(n=>({name:n,tokens:S.startTokens,timeline:[S.deck.pop()]}));
+  S.cur=0; newTurn(); render();
+}
+function newTurn(){S.mc=null;S.mcPick=null;S.yearTip="";S.song=draw();S.slot=null;S.ch=null;S.guessed=false;S.opened=false;S.playing=false;S.log=null;S.phase="turn";}
+function spotifyUrl(s){return "https://open.spotify.com/search/"+encodeURIComponent(s.title+" "+s.artist);}
+
+function viewTurn(){
+  const p=P(), dj=S.players[djIndex()], solo=S.players.length<2, s=song(S.song);
+  if(SP.connected) return `<div class="panel turnbox">
+    <div class="small">Du bist dran</div>
+    <div class="big">${esc(p.name)}</div>
+    <div class="dj">${SP.device?"🔊 "+esc(SP.device.name):"Kein Gerät gewählt"} · <span style="text-decoration:underline;cursor:pointer" onclick="chooseDevice()">ändern</span></div>
+    <div class="vinyl ${S.playing?"":"stop"}"></div>
+    <button class="btn spotify" onclick="spPlay()">${S.opened?"↺ Nochmal von vorn":"▶ Song abspielen"}</button>
+    ${S.opened?`<button class="btn ghost" onclick="${S.playing?"spPause()":"spPlay()"}">${S.playing?"⏸ Pause":"▶ Weiter"}</button>`:""}
+    <div class="hint">Hör gut zu und schätz das Jahr. Der Titel bleibt verdeckt, bis aufgelöst wird.</div>
+    <button class="btn primary" ${S.opened?"":"disabled"} onclick="S.phase='place';render()">Weiter: Karte einsortieren</button>
+    <div class="row">
+      <button class="btn ghost" ${p.tokens<1?"disabled":""} onclick="skipSong(true)">Überspringen (● 1)</button>
+      <button class="btn ghost" onclick="skipSong(false)">Falscher Song</button>
+    </div>
+  </div>
+  ${tlPanel(p,false)}`;
+  return `<div class="panel turnbox">
+    <div class="small">Du bist dran</div>
+    <div class="big">${esc(p.name)}</div>
+    ${solo?`<div class="dj">Solo: Nicht auf den Spotify-Bildschirm schauen 😉</div>`:`<div class="dj">🎧 DJ: ${esc(dj.name)}, nimm das Handy</div>`}
+    <div class="vinyl ${S.opened?"":"stop"}"></div>
+    <a class="btn spotify" href="${spotifyUrl(s)}" target="_blank" rel="noopener" onclick="S.opened=true;save();setTimeout(render,300)">▶ Song in Spotify starten</a>
+    <div class="hint">${solo?"":`<b>${esc(dj.name)}</b>: `}Den passenden Treffer abspielen und den Bildschirm verdeckt halten. Dann zurück in diese App wechseln. ${esc(p.name)} hört zu und schätzt das Jahr.</div>
+    <button class="btn primary" onclick="S.phase='place';render()">Weiter: Karte einsortieren</button>
+    <div class="row">
+      <button class="btn ghost" ${p.tokens<1?"disabled":""} onclick="skipSong(true)">Überspringen (● 1)</button>
+      <button class="btn ghost" onclick="skipSong(false)">Song nicht gefunden</button>
+    </div>
+  </div>
+  ${tlPanel(p,false)}`;
+}
+function skipSong(pay){if(!pay){const s=song(S.song),c=LS.get("hb-uris")||{};delete c[s.title+"|"+s.artist];LS.set("hb-uris",c);}if(pay)P().tokens--;S.song=draw();S.opened=false;S.playing=false;render();}
+
+function tlPanel(p,interactive){
+  const tl=sorted(p.timeline);
+  let h=`<div class="panel"><h3>Zeitleiste von ${esc(p.name)}</h3>`;
+  if(interactive) h+=`<div class="small" style="margin-top:4px">${S.ch&&S.ch.picking?`<span class="tok">${esc(S.players[S.ch.p].name)}</span> fordert heraus: Wähle eine <b>andere</b> Lücke.`:"Tippe auf die Lücke, in die der Song gehört."}</div>`;
+  h+=`<div class="timeline">`;
+  for(let i=0;i<=tl.length;i++){
+    if(interactive){
+      const sel=S.slot===i, ch=S.ch&&S.ch.slot===i;
+      h+=`<button class="slot ${sel?"sel":""} ${ch?"ch":""}" onclick="pickSlot(${i})">${ch?"●":sel?"♪":"+"}</button>`;
+    }
+    if(i<tl.length){const s=song(tl[i]);h+=`<div class="card"><div class="y">${s.year}</div><div class="t">${esc(s.title)}</div><div class="a">${esc(s.artist)}</div></div>`;}
+  }
+  return h+`</div></div>`;
+}
+function pickSlot(i){
+  if(S.ch&&S.ch.picking){ if(i===S.slot) return; S.ch.slot=i; S.ch.picking=false; }
+  else { if(S.ch&&S.ch.slot===i) S.ch=null; S.slot=i; }
+  render();
+}
+function viewPlace(){
+  const p=P();
+  const others=S.players.map((q,i)=>({q,i})).filter(o=>o.i!==S.cur&&o.q.tokens>0);
+  let ch="";
+  if(S.slot!==null&&others.length){
+    ch=`<div class="panel"><h3>Herausforderung</h3><div class="small" style="margin-top:4px">Glaubt jemand, die Karte gehört woanders hin? Das kostet einen Token.</div>
+    <div class="row" style="flex-wrap:wrap;margin-top:8px">${others.map(o=>`<button class="btn small ${S.ch&&S.ch.p===o.i?"primary":""}" onclick="startCh(${o.i})">${esc(o.q.name)} <span class="tok">● ${o.q.tokens}</span></button>`).join("")}
+    ${S.ch?`<button class="btn small ghost" onclick="S.ch=null;render()">Abbrechen</button>`:""}</div></div>`;
+  }
+  return mcPanel()+tlPanel(p,true)+yearPanel()+ch+`<button class="btn primary" ${S.slot===null||(S.ch&&S.ch.slot==null)?"disabled":""} onclick="reveal()">Auflösen</button>
+  <button class="btn ghost" onclick="S.phase='turn';render()">Zurück zum Song</button>`;
+}
+function makeMC(){
+  const s=song(S.song), ids=poolIds().filter(id=>id!==S.song&&song(id).title!==s.title);
+  let near=shuffle(ids.filter(id=>Math.abs(song(id).year-s.year)<=8));
+  if(near.length<3) near=near.concat(shuffle(ids.filter(id=>!near.includes(id))));
+  S.mc=shuffle([S.song,...near.slice(0,3)]);
+}
+function mcPanel(){
+  if(S.mcGuess===false) return "";
+  if(!S.mc) makeMC();
+  return `<div class="panel"><h3>Welcher Song ist das?</h3><div class="small" style="margin-top:4px">Richtig getippt: +1 Token${S.mode==="pro"?" · im Profi-Modus nötig, um die Karte zu behalten":""}</div>
+  ${S.mc.map(id=>{const o=song(id);return `<button class="btn ${S.mcPick===id?"primary":""}" style="flex-direction:column;align-items:flex-start;text-align:left;gap:2px" onclick="S.mcPick=S.mcPick===${id}?null:${id};render()"><span>${esc(o.title)}</span><span class="small" style="color:${S.mcPick===id?"#ffe3ee":"var(--muted)"}">${esc(o.artist)}</span></button>`;}).join("")}</div>`;
+}
+function yearPanel(){
+  if(S.yearGuess===false) return "";
+  return `<div class="panel"><h3>Dein Jahrestipp</h3><div class="small" style="margin-top:4px">Optional. Volltreffer: +2 Tokens · ±1 Jahr: +1 Token</div>
+  <input type="number" inputmode="numeric" min="1950" max="2030" placeholder="z. B. 1985" value="${esc(S.yearTip||"")}" style="margin-top:8px" oninput="S.yearTip=this.value;save()"></div>`;
+}
+function startCh(i){S.ch={p:i,slot:null,picking:true};render();}
+
+function reveal(){
+  const p=P(), s=song(S.song);
+  const placeOk=slotOk(p.timeline,S.slot,s.year);
+  let chOk=false;
+  if(S.ch){S.players[S.ch.p].tokens--; chOk=!placeOk&&slotOk(p.timeline,S.ch.slot,s.year);}
+  if(S.mcGuess!==false) S.guessed=S.mcPick===S.song;
+  const tip=parseInt(S.yearTip,10), diff=isNaN(tip)?null:Math.abs(tip-s.year);
+  S.log={placeOk,chOk,diff};
+  S.phase="reveal"; render();
+}
+function viewReveal(){
+  const p=P(), s=song(S.song), {placeOk,chOk}=S.log;
+  const keep=placeOk&&(S.mode==="normal"||S.guessed);
+  const diff=S.log.diff;
+  let v,cls;
+  if(placeOk){ cls=keep?"ok":"neutral"; v=keep?`✅ Richtig! ${esc(p.name)} behält die Karte.`:`Position richtig, aber im Profi-Modus braucht es auch Titel + Interpret.`; if(S.ch) v+=`<br><span class="small">Herausforderung von ${esc(S.players[S.ch.p].name)} gescheitert, der Token ist weg.</span>`;}
+  else if(chOk){cls="no";v=`❌ Daneben. ${esc(S.players[S.ch.p].name)} lag richtig und bekommt die Karte!`;}
+  else {cls="no";v=`❌ Daneben, die Karte fliegt raus.`+(S.ch?`<br><span class="small">${esc(S.players[S.ch.p].name)} lag auch falsch.</span>`:"");}
+  return `<div class="panel result">
+    <div class="year">${s.year}</div>
+    <div class="title">${esc(s.title)}</div>
+    <div class="artist">${esc(s.artist)}</div>
+    <div class="verdict ${cls}">${v}</div>
+    ${S.mcGuess!==false?`<div class="verdict ${S.guessed?"ok":S.mcPick==null?"neutral":"no"}">${S.guessed?"🎵 Song richtig erkannt! +1 Token":S.mcPick==null?"Kein Song getippt":"🎵 Falscher Song getippt"}</div>`:`    <div class="toggle ${S.guessed?"on":""}" onclick="S.guessed=!S.guessed;render()">
+      <div class="box">${S.guessed?"✓":""}</div>
+      <div style="text-align:left"><b>${esc(p.name)}</b> hat Titel <b>und</b> Interpret genannt<div class="small">${p.tokens>=MAXTOK?"Token-Maximum erreicht":"+1 Token"}${S.mode==="pro"?" · im Profi-Modus Pflicht":""}</div></div>
+    </div>`}
+    ${S.yearGuess!==false?`<div class="verdict ${diff===0||diff===1?"ok":"neutral"}">${diff===null?"Kein Jahrestipp":diff===0?"🎯 Volltreffer beim Jahr! +2 Tokens":diff===1?"Fast! Nur 1 Jahr daneben. +1 Token":`Jahrestipp ${diff} Jahre daneben`}</div>`:""}
+    <button class="btn primary" onclick="next()">Nächster Spieler</button>
+  </div>`;
+}
+function next(){
+  const p=P(), {placeOk,chOk}=S.log;
+  let gain=(S.guessed?1:0)+(S.log.diff===0?2:S.log.diff===1?1:0);
+  p.tokens=Math.min(MAXTOK,p.tokens+gain);
+  if(placeOk&&(S.mode==="normal"||S.guessed)) p.timeline.push(S.song);
+  else if(chOk) S.players[S.ch.p].timeline.push(S.song);
+  const w=S.players.findIndex(q=>q.timeline.length>=S.target);
+  if(w>=0){S.winner=w;S.phase="win";render();return;}
+  S.cur=(S.cur+1)%S.players.length; newTurn(); render(); window.scrollTo(0,0);
+}
+function viewWin(){
+  const w=S.players[S.winner];
+  return `<div class="panel" style="text-align:center"><div class="confetti">🏆</div><div class="big">${esc(w.name)} gewinnt!</div><div class="sub">${w.timeline.length} Karten in der Zeitleiste</div></div>
+  ${tlPanel(w,false)}
+  <button class="btn primary" onclick="rematch()">Revanche, gleiche Spieler</button>
+  <button class="btn ghost" onclick="S=fresh();render()">Neues Setup</button>`;
+}
+function rematch(){S.names=S.players.map(p=>p.name);start();}
+
+// ---------- Modals ----------
+function modal(html){$("#modal").innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`;}
+function closeModal(){$("#modal").innerHTML="";}
+function askReset(){modal(`<h2>Spiel abbrechen?</h2><p class="sub">Der aktuelle Spielstand geht verloren.</p><button class="btn primary" onclick="const n=S.players.map(p=>p.name);S=fresh();S.names=n.length?n:['',''];closeModal();render()">Ja, neues Spiel</button><button class="btn ghost" onclick="closeModal()">Weiterspielen</button>`);}
+function showRules(){modal(`<div class="rules"><h2>So funktioniert's</h2>
+<p><b>Ziel:</b> Als Erste:r die vereinbarte Zahl an Songs chronologisch richtig in der eigenen Zeitleiste haben.</p>
+<p><b>Start:</b> Jede:r bekommt einen aufgedeckten Song mit Jahr als Anker.</p>
+<p><b>Ein Zug:</b></p><ol>
+<li>Der <b>DJ</b> (die Person vor dir in der Reihenfolge) startet den Song über den grünen Button in Spotify und hält den Bildschirm verdeckt.</li>
+<li>Du hörst zu und sagst, in welche Lücke deiner Zeitleiste der Song gehört. Dafür tippst du in der App auf die Lücke.</li>
+<li>Andere können mit einem <b>Token</b> herausfordern und eine andere Lücke wählen. Liegst du falsch und die Herausforderin richtig, bekommt sie die Karte.</li>
+<li>Beim <b>Auflösen</b> erscheinen Jahr, Titel und Interpret. Hast du Titel <b>und</b> Interpret genannt, gibt es +1 Token (maximal 5).</li></ol>
+<p><b>Tokens</b> kann man auch ausgeben, um einen Song zu überspringen.</p>
+<p><b>Extras:</b> Vor dem Auflösen kannst du aus 4 Möglichkeiten den Song tippen (+1 Token) und ein exaktes Jahr schätzen (Volltreffer +2, ±1 Jahr +1 Token).</p>
+<p><b>Profi-Modus:</b> Die Karte zählt nur, wenn Position und Titel + Interpret stimmen.</p>
+<p><b>Gleiches Jahr:</b> Liegen zwei Songs im selben Jahr, ist jede Position direkt daneben richtig.</p>
+<p class="small">Mit Spotify-Verbindung spielt die App den Song direkt auf dem gewählten Gerät ab, ein DJ ist dann nicht nötig. Ohne Verbindung öffnet Spotify die Suche. Den Treffer mit dem passenden Interpreten nehmen, möglichst die Originalversion. Wird der Song nicht gefunden, gibt es kostenlos einen neuen. Der Spielstand wird auf diesem Gerät zwischengespeichert.</p></div>
+<button class="btn primary" onclick="closeModal()">Alles klar</button>`);}
+
+spCallback().finally(render);
+</script>
+</body>
+</html>
