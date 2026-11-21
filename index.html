@@ -109,6 +109,24 @@
   code.uri{display:block;background:var(--panel2);padding:10px 12px;border-radius:12px;font-size:13px;word-break:break-all;margin-top:6px;color:var(--accent)}
   .dev{display:flex;justify-content:space-between;align-items:center}
   textarea{font-family:ui-monospace,monospace}
+  .yp-top{display:flex;align-items:center;gap:10px;margin-top:10px}
+  .yp-step{width:52px;height:52px;flex:0 0 52px;border-radius:16px;border:1.5px solid var(--line);background:var(--panel);font-size:26px;font-weight:600;color:var(--accent);cursor:pointer;font-family:inherit}
+  .yp-step:active{transform:scale(.94)}
+  .yp-val{flex:1;text-align:center;font-family:"Bricolage Grotesque";font-size:40px;font-weight:800;letter-spacing:-1px;line-height:1.1;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .yp-val.none{font-family:Inter,sans-serif;font-size:16px;font-weight:600;letter-spacing:0;color:var(--muted);background:none;-webkit-background-clip:border-box;background-clip:border-box;padding:12px 0}
+  .yp-wrap{position:relative;margin-top:10px}
+  .yp-wrap::after{content:"";position:absolute;left:50%;top:-6px;transform:translateX(-50%);border:7px solid transparent;border-top-color:var(--accent);pointer-events:none}
+  .yp-strip{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding:6px 0;-webkit-mask-image:linear-gradient(90deg,transparent,#000 22%,#000 78%,transparent);mask-image:linear-gradient(90deg,transparent,#000 22%,#000 78%,transparent)}
+  .yp-strip::-webkit-scrollbar{display:none}
+  .yp-pad{flex:0 0 calc(50% - 32px)}
+  .yp-y{flex:0 0 64px;height:48px;scroll-snap-align:center;border:0;background:transparent;font-family:inherit;font-size:17px;font-weight:600;color:var(--muted);border-radius:12px;cursor:pointer}
+  .yp-y.dec{color:var(--ink)}
+  .yp-y.on{background:var(--grad);color:#fff;box-shadow:0 4px 12px rgba(192,38,211,.3)}
+  .yp.none .yp-y.on{background:var(--panel2);color:var(--ink);box-shadow:none}
+  .yp-decs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-top:8px;padding-bottom:2px}
+  .yp-decs::-webkit-scrollbar{display:none}
+  .yp-decs button{flex:0 0 auto;border:1.5px solid var(--line);background:var(--panel);color:var(--muted);border-radius:999px;padding:7px 12px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  .yp-decs button.on{border-color:var(--accent);color:var(--accent);background:#f5f0ff}
 </style>
 </head>
 <body>
@@ -1877,7 +1895,7 @@ function bzBuzz(name){
 function bzBuzzIdx(i){bzBuzz(S.players[i].name);}
 function bzEvaluate(d){
   const p=S.players[S.cur], s=song(S.song);
-  S.slot=+d.slot; S.mcPick=d.mcPick==null?null:+d.mcPick; S.yearTip=d.yearTip||""; S.hostAnswer=false;
+  S.slot=+d.slot; S.mcPick=d.mcPick==null?null:+d.mcPick; S.yearTip=(()=>{const t=parseInt(d.yearTip,10);return t>=YMIN&&t<=YMAX?String(t):"";})(); S.hostAnswer=false;
   const placeOk=slotOk(p.timeline,S.slot,s.year);
   const guessed=S.mcGuess!==false&&S.mcPick===S.song;
   if(placeOk&&(S.mode==="normal"||guessed)){
@@ -1973,7 +1991,61 @@ function viewBzReveal(){
     <div class="verdict ${r.ok?"ok":"no"}">${v}</div>
     <button class="btn primary" onclick="bzNext()">Nächster Song</button></div>`;
 }
+// ---------- Jahres-Wähler: wischen, tippen oder −/+, nur gültige Jahre ----------
+const YMIN=1950, YMAX=new Date().getFullYear();
+const ypGet=k=>{const v=parseInt(k==="c"?C.view.yearTip:S.yearTip,10);return v>=YMIN&&v<=YMAX?v:null;};
+function ypStore(k,y){const v=y==null?"":String(y);if(k==="c")C.view.yearTip=v;else{S.yearTip=v;save();}}
+function yearPicker(k){
+  const v=ypGet(k), show=v||1985;
+  let ys=""; for(let y=YMIN;y<=YMAX;y++) ys+=`<button class="yp-y ${y%10===0?"dec":""} ${y===show?"on":""}" data-y="${y}" onclick="ypSet('${k}',${y},true)">${y}</button>`;
+  let ds=""; for(let d=YMIN;d<=YMAX;d+=10) ds+=`<button class="${v&&Math.floor(v/10)*10===d?"on":""}" data-d="${d}" onclick="ypSet('${k}',${d+5},true)">${String(d).slice(2)}er</button>`;
+  return `<div class="yp ${v?"":"none"}" data-k="${k}">
+    <div class="yp-top"><button class="yp-step" onclick="ypStep('${k}',-1)" aria-label="Ein Jahr früher">−</button>
+      <div class="yp-val ${v?"":"none"}">${v||"Wische zur Jahreszahl"}</div>
+      <button class="yp-step" onclick="ypStep('${k}',1)" aria-label="Ein Jahr später">+</button></div>
+    <div class="yp-wrap"><div class="yp-strip"><div class="yp-pad"></div>${ys}<div class="yp-pad"></div></div></div>
+    <div class="yp-decs">${ds}</div>
+    <div style="text-align:center;margin-top:4px"><button class="linkish yp-clear" style="${v?"":"visibility:hidden"}" onclick="ypSet('${k}',null,true)">Ohne Jahrestipp</button></div>
+  </div>`;
+}
+function ypStep(k,d){const v=ypGet(k)||1985;ypSet(k,Math.min(YMAX,Math.max(YMIN,v+(ypGet(k)?d:0))),true);}
+function ypEl(k){return document.querySelector(`.yp[data-k="${k}"]`);}
+function ypSet(k,y,scroll){
+  if(y!=null) y=Math.min(YMAX,Math.max(YMIN,Math.round(y)));
+  ypStore(k,y); const el=ypEl(k); if(!el) return;
+  const show=y||ypShown(el)||1985;
+  el.classList.toggle("none",!y);
+  const val=el.querySelector(".yp-val"); val.textContent=y||"Wische zur Jahreszahl"; val.classList.toggle("none",!y);
+  el.querySelectorAll(".yp-y").forEach(b=>b.classList.toggle("on",+b.dataset.y===show));
+  el.querySelectorAll(".yp-decs button").forEach(b=>b.classList.toggle("on",!!y&&+b.dataset.d===Math.floor(y/10)*10));
+  el.querySelector(".yp-clear").style.visibility=y?"visible":"hidden";
+  if(scroll&&y) ypScrollTo(el,y,true);
+  try{navigator.vibrate&&navigator.vibrate(5);}catch(e){}
+}
+function ypShown(el){const b=el.querySelector(".yp-y.on");return b?+b.dataset.y:null;}
+function ypScrollTo(el,y,smooth){
+  const st=el.querySelector(".yp-strip"), b=st.querySelector(`[data-y="${y}"]`); if(!b) return;
+  st._prog=Date.now()+(smooth?700:150);
+  st.scrollTo({left:b.offsetLeft-(st.clientWidth-b.offsetWidth)/2,behavior:smooth?"smooth":"auto"});
+}
+// Nach jedem Rendern: Leiste auf den gewählten Wert stellen und Wischen auswerten
+function ypInit(){
+  document.querySelectorAll(".yp").forEach(el=>{
+    const k=el.dataset.k, st=el.querySelector(".yp-strip");
+    ypScrollTo(el,ypGet(k)||1985,false);
+    let t=null;
+    st.addEventListener("scroll",()=>{
+      if(Date.now()<(st._prog||0)) return;
+      clearTimeout(t); t=setTimeout(()=>{
+        const mid=st.scrollLeft+st.clientWidth/2; let best=null,bd=1e9;
+        st.querySelectorAll(".yp-y").forEach(b=>{const d=Math.abs(b.offsetLeft+b.offsetWidth/2-mid);if(d<bd){bd=d;best=b;}});
+        if(best&&+best.dataset.y!==ypGet(k)) ypSet(k,+best.dataset.y,false);
+      },120);
+    },{passive:true});
+  });
+}
 function postRender(){
+  ypInit();
   const q=document.getElementById("qr");
   if(q&&!q.hasChildNodes()){
     if(window.QRCode){try{new QRCode(q,{text:joinUrl(),width:180,height:180});}catch(e){}}
@@ -2067,13 +2139,13 @@ function renderC(){
     b=`<div class="panel turnbox" style="padding-bottom:6px"><div class="big">Du bist dran!</div></div>`;
     if(v.mc) b+=`<div class="panel"><h3>Welcher Song ist das?</h3><div class="small" style="margin-top:4px">${v.pro?"Im Profi-Modus nötig":"Richtig: +1 Token"}</div>${v.mc.map(o=>`<button class="btn ${v.mcPick===o.id?"primary":""}" style="flex-direction:column;align-items:flex-start;text-align:left;gap:2px" onclick="cMc(${+o.id})"><span>${esc(o.t)}</span><span class="small">${esc(o.a)}</span></button>`).join("")}</div>`;
     b+=`<div class="panel"><h3>Deine Zeitleiste</h3><div class="small" style="margin-top:4px">Tippe auf die Lücke, in die der Song gehört.</div>${cTimeline(v.tl,true,v.slot)}</div>`;
-    if(v.yg) b+=`<div class="panel"><h3>Dein Jahrestipp</h3><div class="small" style="margin-top:4px">Optional. Volltreffer +2 · ±1 Jahr +1 Token</div><input type="number" inputmode="numeric" placeholder="z. B. 1985" value="${esc(v.yearTip)}" style="margin-top:8px" oninput="C.view.yearTip=this.value"></div>`;
+    if(v.yg) b+=`<div class="panel"><h3>Dein Jahrestipp</h3><div class="small" style="margin-top:4px">Optional. Volltreffer +2 · ±1 Jahr +1 Token</div>${yearPicker("c")}</div>`;
     b+=`<button class="btn primary" ${v.slot==null?"disabled":""} onclick="clientSubmit()">Antwort abgeben</button>`;
   }
   else if(v.k==="submitted") b=`<div class="panel turnbox"><div class="hint">Antwort gesendet, gleich gibt's die Auflösung …</div></div>`;
   else if(v.k==="reveal") b=`<div class="panel result"><div class="year">${v.year}</div><div class="title">${esc(v.title)}</div><div class="artist">${esc(v.artist)}</div><div class="verdict ${v.ok?"ok":"no"}">${v.ok?(v.winner===C.me?"✅ Die Karte gehört dir!"+(v.gain?` +${v.gain} Token`:""):"✅ "+esc(v.winner)+" bekommt die Karte"):"Niemand lag richtig."}</div></div>`;
   else if(v.k==="win") b=`<div class="panel" style="text-align:center"><div class="confetti">🏆</div><div class="big">${v.name===C.me?"Du gewinnst!":esc(v.name)+" gewinnt!"}</div></div>`;
-  a.innerHTML=h+b;
+  a.innerHTML=h+b; ypInit();
 }
 
 // ---------- Rendering ----------
@@ -2216,7 +2288,7 @@ function mcPanel(){
 function yearPanel(){
   if(S.yearGuess===false) return "";
   return `<div class="panel"><h3>Dein Jahrestipp</h3><div class="small" style="margin-top:4px">Optional. Volltreffer: +2 Tokens · ±1 Jahr: +1 Token</div>
-  <input type="number" inputmode="numeric" min="1950" max="2030" placeholder="z. B. 1985" value="${esc(S.yearTip||"")}" style="margin-top:8px" oninput="S.yearTip=this.value;save()"></div>`;
+  ${yearPicker("h")}</div>`;
 }
 function startCh(i){S.ch={p:i,slot:null,picking:true};render();}
 
